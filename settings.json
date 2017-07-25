@@ -1,0 +1,8 @@
+
+{
+  "apikey": "steamAPI key",
+  "password": "username",
+  "username": "passowrd",
+  "bkey":"backpack.tf key here",
+  "accept_escrow":0
+}
