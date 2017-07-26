@@ -80,8 +80,8 @@ class Parser:
     def __init__(self, trade_json:dict):
         self.trade = trade_json
         self.escrow = bool(trade_json['escrow_end_date'])
-        self.items_to_give = self.__items_to_give()
-        self.items_to_receive = self.__items_to_receive()
+        self.items_to_receive = self.__items_to_give()
+        self.items_to_give = self.__items_to_receive()
 
     def __items_to_give(self):
         item_names = []
@@ -111,7 +111,7 @@ class Parser:
                     curr[4] += 1
         else:
             for item in self.items_to_give:
-                if item == currencies['ref']:
+                if item == currencies['scrap']:
                     curr[0] += 1
                 elif item == currencies['rec']:
                     curr[1] += 1
@@ -208,9 +208,7 @@ if __name__ == '__main__':
             for line in file:
                 try:
                     item, price, typ = line.split(',')
-                    print("split")
                     item, price, typ = item.strip(), price.strip(), typ.strip()
-                    print('stripped')
                     if typ[0].lower() == 's':
                         sell_trades[item] = float(price)
                         print(sell_trades)
@@ -251,7 +249,7 @@ if __name__ == '__main__':
                 time.sleep(10)
                 raise BaseException('Starting again...')
 
-            for trade in trades['response']['trade_offers_sent']:
+            for trade in trades['response']['trade_offers_received']:
                 trade_id = trade['tradeofferid']
                 if trade_id not in declined_trades:
                     other_id = trade['accountid_other']
