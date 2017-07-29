@@ -208,7 +208,9 @@ if __name__ == '__main__':
             for line in file:
                 try:
                     item, price, typ = line.split(',')
+                    print("split")
                     item, price, typ = item.strip(), price.strip(), typ.strip()
+                    print('stripped')
                     if typ[0].lower() == 's':
                         sell_trades[item] = float(price)
                         print(sell_trades)
@@ -264,9 +266,18 @@ if __name__ == '__main__':
                         print(f'[steamrep.com]: WARNING, USER {id64} IS A SCAMMER')
                         print('[TRADE]: Ending trade...')
                         client.decline_trade_offer(trade_id)
+                        declined_trades.append(trade_id)
                         raise BaseException('Looking for trades...')
-                    else:
-                        print('[steamrep.com]: User is not banned')
+                    print('[steamrep.com]: User is not banned')
+                    print(f'Checking backpack.tf to check for scammer... (ID: {id64})')
+                    rJson = requests.get(f"https://backpack.tf/api/users/info/v1?key={bkey}&steamids={id64}").json()
+                    if "bans" in rJson['users'][str(id64)].keys():
+                        print(f'[backpack.tf]:  WARNING, USER {id64} IS A SCAMMER')
+                        print('[TRADE]: Ending trade...')
+                        client.decline_trade_offer(trade_id)
+                        declined_trades.append(trade_id)
+                        raise BaseException('Looking for trades...')
+
                     trade_data = Parser(trade)
                     if not bool(escrow) and trade_data.escrow:
                         declined_trades.append(trade_id)
