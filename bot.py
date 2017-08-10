@@ -37,7 +37,6 @@ def check_for_updates():
     new_version = r.text
     if LooseVersion(new_version) > LooseVersion(curr_version):
         print('[PROGRAM]: New version is available, would you like to install?')
-        exit(0)
         yn = input('[y/n]: ')
         if yn[0].lower() == 'y':
             print('[Installer]: Starting installation...', end='')
