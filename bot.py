@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import time
+from distutils.version import LooseVersion
 
 apikey = ''
 password = ''
@@ -28,17 +29,15 @@ start_text = """
 
 Created by: Zwork101    Github: https://github.com/Zwork101    Steam: https://steamcommunity.com/id/ZWORK101\n
 """
-
+  
 def check_for_updates():
     with open('__version__', 'r') as file:
         curr_version = file.read()
     r = requests.get('https://raw.githubusercontent.com/Zwork101/tf2-trade-bot/master/__version__')
     new_version = r.text
-    cmajor, cminor, cpatch = [int(i) for i in curr_version.split('.')]
-    nmajor, nminor, npatch = [int(i) for i in new_version.split('.')]
-    totalC, totalN = ((cmajor*100) + (cminor*10) + cpatch), ((nmajor*100) + (nminor*10) + npatch)
-    if totalN > totalC:
+    if LooseVersion(new_version) > LooseVersion(curr_version):
         print('[PROGRAM]: New version is available, would you like to install?')
+        exit(0)
         yn = input('[y/n]: ')
         if yn[0].lower() == 'y':
             print('[Installer]: Starting installation...', end='')
