@@ -3,6 +3,8 @@ import sys
 import json
 import time
 from distutils.version import LooseVersion
+import importlib
+import pip
 
 apikey = ''
 password = ''
@@ -60,13 +62,14 @@ def calculate(scrapC, recC, refC, keyC, budC):
 
 def check_install(pkg, c, imp=''):
     try:
-        exec(f'import {pkg}')
-        print(f'[PROGRAM]: Required package is installed {c}/3')
-    except ImportError:
-        if not imp:
+        print(f"Checking install on {pkg}")
+        importlib.import_module(pkg)
+        print(f'[PROGRAM]: Required package is installed {c}/4')
+    except:
+        if imp:
             pkg = imp
         print('[PROGRAM]: A required package is not installed, installing...')
-        r = os.popen(f'{os.path.dirname(sys.executable)}\\python.exe -m pip install {pkg}')
+        pip.main(['install', pkg])
         print('[PROGRAM]: Installed package! Please restart this program to continue.')
         input('press enter to close program...\n')
         os._exit(0)
@@ -151,12 +154,12 @@ if __name__ == '__main__':
     print(start_text)
 
     for pkg in packages:
-        check_install(pkg, packages.index(pkg), '' if pkg!='backpackpy' else 'backpack.py')
+        check_install(pkg, packages.index(pkg)+1, '' if pkg!='backpackpy' else 'backpack.py')
 
     from bs4 import BeautifulSoup
     from steampy.client import SteamClient
     from steampy.exceptions import InvalidCredentials
-    from backpackpy import listings
+    #from backpackpy import listings
     import requests
 
     check_for_updates()
@@ -211,7 +214,7 @@ if __name__ == '__main__':
 
     print(f'[PROGRAM]: Connected to steam! Logged in as {username}')
     try:
-        with open('trading.data', 'r') as file:
+        with open('trade.data', 'r') as file:
             count = 1
             for line in file:
                 try:
@@ -222,13 +225,13 @@ if __name__ == '__main__':
                     else:
                         buy_trades[item] = float(price)
                 except ValueError:
-                    print(f'[trading.data]: Whoops! Invalid data on line {count}, make sure each line looks like the following,')
+                    print(f'[trade.data]: Whoops! Invalid data on line {count}, make sure each line looks like the following,')
                     print('<item market name>, <price (float)>, <type (sell, buy)>')
                     input('press enter to close program...\n')
                     os._exit(1)
                 count += 1
     except FileNotFoundError:
-        print('[trading.data]: Unable to find file.')
+        print('[trade.data]: Unable to find file.')
         input('press enter to close program...\n')
         os._exit(1)
     print('[PROGRAM]: Finished loading trading data.')
@@ -251,6 +254,7 @@ if __name__ == '__main__':
         try:
             try:
                 trades = client.get_trade_offers()
+                print('got trade offers')
             except json.decoder.JSONDecodeError:
                 print("[PROGRAM]: Unexpected error, taking a break (10 seconds).")
                 time.sleep(10)
