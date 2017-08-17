@@ -258,7 +258,8 @@ if __name__ == '__main__':
             except json.decoder.JSONDecodeError:
                 print("[PROGRAM]: Unexpected error, taking a break (10 seconds).")
                 time.sleep(10)
-                raise BaseException('Starting again...')
+                print('Starting again...')
+                continue
 
             for trade in trades['response']['trade_offers_received']:
                 trade_id = trade['tradeofferid']
@@ -267,31 +268,32 @@ if __name__ == '__main__':
                     declined = False
                     id64 = 76561197960265728 + other_id
                     print(f'[TRADE]: Found trade (ID: {trade_id})')
-                    print(f'[TRADE]: Checking steamrep.com to check for scammer... (ID: {id64})')
-                    r = requests.get(f'http://steamrep.com/profiles/{id64}')
-                    soup = BeautifulSoup(r.content.decode(), "html.parser")
-
-                    if soup.find_all('div', {'class': 'badgetext color-evil'}):
-                        print(f'[steamrep.com]: WARNING, USER {id64} IS A SCAMMER')
-                        print('[TRADE]: Ending trade...')
-                        client.decline_trade_offer(trade_id)
-                        declined_trades.append(trade_id)
-                        raise BaseException('Looking for trades...')
-                    print('[steamrep.com]: User is not banned')
-                    print(f'Checking backpack.tf to check for scammer... (ID: {id64})')
+                    print("[TRADE]: Checking for trade bans for backpack.tf and steamrep.com")
                     rJson = requests.get(f"https://backpack.tf/api/users/info/v1?key={bkey}&steamids={id64}").json()
                     if "bans" in rJson['users'][str(id64)].keys():
-                        print(f'[backpack.tf]:  WARNING, USER {id64} IS A SCAMMER')
-                        print('[TRADE]: Ending trade...')
-                        client.decline_trade_offer(trade_id)
-                        declined_trades.append(trade_id)
-                        raise BaseException('Looking for trades...')
-
+                        if "steamrep_caution" in rJson['users'][str(id64)]['bans'] or \
+                                "steamrep_scammer" in rJson['users'][str(id64)]['bans']:
+                            print("[steamrep.com]: WARNING SCAMMER")
+                            print('[TRADE]: Ending trade...')
+                            client.decline_trade_offer(trade_id)
+                            declined_trades.append(trade_id)
+                            print('Looking for trades...')
+                            continue
+                        print('[steamrep.com]: User is not banned')
+                        if "all" in rJson['users'][str(id64)]['bans']:
+                            print('[backpack.tf]: WARNING SCAMMER')
+                            print('[TRADE]: Ending trade...')
+                            client.decline_trade_offer(trade_id)
+                            declined_trades.append(trade_id)
+                            print('Looking for trades...')
+                            continue
+                    print("[TRADE]: User is safe to trade with")
                     trade_data = Parser(trade)
                     if not bool(escrow) and trade_data.escrow:
                         declined_trades.append(trade_id)
                         client.decline_trade_offer(trade_id)
-                        raise BaseException("[TRADE]: This user's trade is escrow, declined")
+                        print("[TRADE]: This user's trade is escrow, declined")
+                        continue
                     sell_value = 0
 
                     for item in trade_data.items_to_give:
@@ -310,7 +312,7 @@ if __name__ == '__main__':
                                   f'us:\n{str(trade_data.items_to_receive)}')
                             print(f'[TRADE]: For our:\n{str(trade_data.items_to_give)}')
                             client.decline_trade_offer(trade_id)
-                            declined_trades.append(id)
+                            declined_trades.append(trade_id)
 
                         else:
                             check_trade(client, trade_data, buy_value, trade_id, 'buy')
@@ -323,5 +325,5 @@ if __name__ == '__main__':
         except InterruptedError:
             os._exit(0)
 
-        except BaseException as BE:
-            print(f'[PROGRAM]: {BE}')
+        #except BaseException as BE:
+            #print(f'[PROGRAM]: {BE}')
