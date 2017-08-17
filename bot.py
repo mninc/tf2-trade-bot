@@ -19,6 +19,7 @@ escrow = None
 currencies = {'bud':'Earbuds', 'ref':'Refined Metal', 'rec':'Reclaimed Metal', 'scrap':'Scrap Metal', 'key':'Mann Co. Supply Crate Key'}
 packages = ['steampy', 'requests', 'bs4', 'backpackpy']
 declined_trades = []
+past_time = time.time()
 
 start_text = """
   _____    _____  ____         _____    ____        _      ____  U _____ u       ____     U  ___ u _____   
@@ -107,16 +108,16 @@ class Parser:
     def __init__(self, trade_json:dict):
         self.trade = trade_json
         self.escrow = bool(trade_json['escrow_end_date'])
-        self.items_to_receive = self.__items_to_give()
-        self.items_to_give = self.__items_to_receive()
+        self.items_to_receive = self.items_to_give()
+        self.items_to_give = self.items_to_receive()
 
-    def __items_to_give(self):
+    def _items_to_give(self):
         item_names = []
         for assetID in self.trade['items_to_receive']:
             item_names.append(self.trade['items_to_receive'][assetID]['market_name'])
         return item_names
 
-    def __items_to_receive(self):
+    def _items_to_receive(self):
         item_names = []
         for assetID in self.trade['items_to_give']:
             item_names.append(self.trade['items_to_give'][assetID]['market_name'])
@@ -171,12 +172,16 @@ if __name__ == '__main__':
                 try:
                     apikey, password, username, bkey, accept_escrow = data['apikey'],\
                                             data['password'], data['username'], data['bkey'], data['accept_escrow']
+                    token = requests.get(f"https://backpack.tf/api/aux/token/v1?key={bkey}").json()['token']
                 except KeyError as k:
                     print(f'[settings.json]: Whoops! You are missing the {k} value')
+                    input('press enter to close program...\n')
+                    os._exit(1)
             except json.JSONDecodeError:
                 print('[PROGRAM]: Whoops! It would seem that you settings.json folder is invalid!')
                 input('press enter to close program...\n')
                 os._exit(1)
+
     except FileNotFoundError:
         print('[PROGRAM]: File settings.json not found! Would you like to make one?')
         yn = input('[y/n]: ')
@@ -252,6 +257,14 @@ if __name__ == '__main__':
 
     while True:
         try:
+            print(f"[HEARTBEAT]: {90 - int(time.time() - past_time)} seconds until can send next heartbeat")
+            if int(time.time() - past_time) >= 90:
+                p = requests.post(f"https://backpack.tf/api/aux/heartbeat/v1?", data={"token":token, "automatic":"all"})
+                if p.status_code is not 200:
+                    print(f'[HEARTBEAT]: Error when sending heartbeat > {p.json()["message"]}')
+                else:
+                    print("[HEARTBEAT]: Sent heartbeat to backpack.tf")
+                    past_time = time.time()
             try:
                 trades = client.get_trade_offers()
                 print('got trade offers')
@@ -308,8 +321,8 @@ if __name__ == '__main__':
                                 buy_value += buy_trades[item]
 
                         if not buy_value:
-                            print(f'[TRADE]: This trade has nothing we are looking for! They offered '
-                                  f'us:\n{str(trade_data.items_to_receive)}')
+                            print(f"[TRADE]: This trade has nothing we are looking for! They offered "
+                                  f"us:\n{str(trade_data.items_to_receive)}")
                             print(f'[TRADE]: For our:\n{str(trade_data.items_to_give)}')
                             client.decline_trade_offer(trade_id)
                             declined_trades.append(trade_id)
@@ -325,5 +338,5 @@ if __name__ == '__main__':
         except InterruptedError:
             os._exit(0)
 
-        #except BaseException as BE:
-            #print(f'[PROGRAM]: {BE}')
+        except BaseException as BE:
+            print(f'[PROGRAM]: {BE}')
