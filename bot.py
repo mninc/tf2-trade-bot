@@ -108,8 +108,8 @@ class Parser:
     def __init__(self, trade_json:dict):
         self.trade = trade_json
         self.escrow = bool(trade_json['escrow_end_date'])
-        self.items_to_receive = self.items_to_give()
-        self.items_to_give = self.items_to_receive()
+        self.items_to_receive = self._items_to_give()
+        self.items_to_give = self._items_to_receive()
 
     def _items_to_give(self):
         item_names = []
@@ -241,6 +241,17 @@ if __name__ == '__main__':
         os._exit(1)
     print('[PROGRAM]: Finished loading trading data.')
 
+    #yn = input("Would you like to sync to backpack.tf listings?\n[y/n]: ")
+    #if yn[0].lower() == 'y':
+        #steamid = client.steam_guard['steamid']
+        #steam_inv = requests.get(f'http://steamcommunity.com/inventory/{steamid}/440/2?l=english&count=5000').json()
+        #bp_listings = requests.get("https://backpack.tf/api/classifieds/listings/v1?", data={'token':token})
+        #for classified in bp_listings["listings"]:
+            #asset_id = classified['id']
+            #for item in steam_inv['assets']:
+                #if item['assetid'] == classified['id']:
+                    #class_id = item['']
+
     print('[PROGRAM]: Obtaining bud and key values from backpack.tf...')
     rJson = requests.get(f'https://backpack.tf/api/IGetCurrencies/v1?key={bkey}').json()['response']
     if rJson['success']:
@@ -339,4 +350,4 @@ if __name__ == '__main__':
             os._exit(0)
 
         except BaseException as BE:
-            print(f'[PROGRAM]: {BE}')
+            print(f'[ERROR: {BE}')
