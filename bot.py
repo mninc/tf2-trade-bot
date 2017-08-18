@@ -257,8 +257,8 @@ if __name__ == '__main__':
 
     while True:
         try:
-            print(f"[HEARTBEAT]: {90 - int(time.time() - past_time)} seconds until can send next heartbeat")
-            if int(time.time() - past_time) >= 90:
+            print(f"[HEARTBEAT]: {300 - int(time.time() - past_time)} seconds until can send next heartbeat")
+            if int(time.time() - past_time) >= 300:
                 p = requests.post(f"https://backpack.tf/api/aux/heartbeat/v1?", data={"token":token, "automatic":"all"})
                 if p.status_code is not 200:
                     print(f'[HEARTBEAT]: Error when sending heartbeat > {p.json()["message"]}')
