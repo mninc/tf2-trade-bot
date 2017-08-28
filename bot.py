@@ -1,10 +1,11 @@
 import os
-import sys
 import json
 import time
 from distutils.version import LooseVersion
 import importlib
 import pip
+from enum import Enum
+
 
 apikey = ''
 password = ''
@@ -17,7 +18,7 @@ key_price = 0
 bud_price = 0
 escrow = None
 currencies = {'bud':'Earbuds', 'ref':'Refined Metal', 'rec':'Reclaimed Metal', 'scrap':'Scrap Metal', 'key':'Mann Co. Supply Crate Key'}
-packages = ['steampy', 'requests', 'bs4', 'backpackpy']
+packages = ['steampy', 'requests']
 declined_trades = []
 past_time = time.time()
 
@@ -33,13 +34,143 @@ start_text = """
 Created by: Zwork101    Github: https://github.com/Zwork101    Steam: https://steamcommunity.com/id/ZWORK101\n
 """
 
-class Parser:
+class TradeOfferStatus(Enum):
+    INVALID = 1
+    ACTIVE = 2
+    ACCEPTED = 3
+    EXPIRED = 4
+    CANCELED = 6
+    INVALID_ITEMS = 8
+    WAIT_CONF = 9
+    WAIT_SFAC = 10
+    ESCROW = 11
 
-    def __init__(self, trade_json:dict):
+
+class TradeManager:
+
+    def __init__(self, client):
+        self._trades = []
+        self._pending_trades = []
+        self.client = client
+
+
+    def check_trades_content(self):
+        for trade in range(len(self._pending_trades)-1,-1,-1):
+            trade = self._pending_trades[trade]
+            sell_value = 0
+            buy_value = 0
+            for item in trade.items_to_give:
+                if item in sell_trades:
+                    sell_value += sell_trades[item]
+
+            if not sell_value:
+                for item in trade.items_to_receive:
+                    if item in buy_trades.keys():
+                        buy_value += buy_trades[item]
+
+                if not buy_value:
+                    print(f"[TRADE]: This trade has nothing we are looking for! They offered "
+                          f"us:\n{str(trade.items_to_receive)}")
+                    print(f'[TRADE]: For our:\n{str(trade.items_to_give)}')
+                    self.client.decline_trade_offer(trade.id)
+                    continue
+
+            if sell_value > buy_value:
+                response = check_trade(trade, sell_value, 'sell')
+            else:
+                response = check_trade(trade, buy_value, 'buy')
+            if response:
+                print(f'[TRADE]: Looks good! They gave us:\n{str(trade.items_to_receive)}')
+                print(f'[TRADE]: We gave them:\n{str(trade.items_to_give)}')
+                print('[TRADE]: Attempting to accept offer')
+                self.client.accept_trade_offer(trade.id)
+                self._trades.append(trade)
+                self._pending_trades.remove(trade)
+
+            else:
+                print(f'[TRADE]: No good! They offered us:\n{str(trade.items_to_receive)}')
+                print(f'[TRADE]: For our:\n{str(trade.items_to_give)}')
+                print('[TRADE]: Declining offer')
+                self.client.decline_trade_offer(trade.id)
+                self._pending_trades.remove(trade)
+
+    def get_new_trades(self):
+        new_trades = client.get_trade_offers()['response']
+        for new_trade in new_trades['trade_offers_received']:
+            if new_trade['tradeofferid'] not in self._trades:
+                id64 = 76561197960265728 + new_trade['accountid_other']
+                trade = Trade(new_trade, id64)
+                print(f'[TRADE]: Found trade (ID: {trade.id})')
+                if self._check_partner(trade):
+                    if not accept_escrow and trade.escrow:
+                        self.client.decline_trade_offer(trade.id)
+                    else:
+                        self._pending_trades.append(trade)
+
+
+    def _check_partner(self, trade):
+        print("[TRADE]: Checking for trade bans for backpack.tf and steamrep.com")
+        rJson = requests.get(f"https://backpack.tf/api/users/info/v1?",
+                             data={'key':bkey, 'steamids':trade.other_steamid}).json()
+
+        if "bans" in rJson['users'][trade.other_steamid].keys():
+            if "steamrep_caution" in rJson['users'][trade.other_steamid]['bans'] or \
+                            "steamrep_scammer" in rJson['users'][trade.other_steamid]['bans']:
+                print("[steamrep.com]: WARNING SCAMMER")
+                print('[TRADE]: Ending trade...')
+                self.client.decline_trade_offer(trade.id)
+                return False
+
+            print('[steamrep.com]: User is not banned')
+            if "all" in rJson['users'][trade.other_steamid]['bans']:
+                print('[backpack.tf]: WARNING SCAMMER')
+                print('[TRADE]: Ending trade...')
+                self.client.decline_trade_offer(trade.id)
+                print('Looking for trades...')
+                return False
+            print('[backpack.tf]: User is clean')
+        print("[backpack.tf/steamrep.com]: User is clean")
+        return True
+
+
+    def check_bad_trades(self):
+        for trade_index in range(len(self._trades)-1, -1, -1):
+            trade = self._trades[trade_index]
+            status = trade.status()
+            if status == TradeOfferStatus.INVALID.value:
+                print(f'[ERROR]: Trade offer id {trade.id} seems to be invalid')
+                self._trades.remove(trade)
+            elif status == TradeOfferStatus.CANCELED.value:
+                print(f'[TRADE]: Trade {trade.id} was canceled.')
+                self._trades.remove(trade)
+            elif status == TradeOfferStatus.EXPIRED.value:
+                print(f'[TRADE]: Trade {trade.id} has expired... How did that happen?')
+                self._trades.remove(trade)
+            elif status == TradeOfferStatus.INVALID_ITEMS.value:
+                print(f'[TRADE]: Items attempting to trade became invalid. {trade.id}')
+                self._trades.remove(trade)
+            elif status == TradeOfferStatus.ESCROW.value and not accept_escrow:
+                print('[ERROR]: Whoops, escrow trade was confirmed. Sorry about that')
+
+
+    def check_good_trades(self):
+        for trade_index in range(len(self._trades) - 1, -1, -1):
+            trade = self._trades[trade_index]
+            status = trade.status()
+            if status == TradeOfferStatus.ACCEPTED.value:
+                print(f'[TRADE]: Accepted trade {trade.id}')
+                self._trades.remove(trade)
+            print(status)
+
+class Trade:
+
+    def __init__(self, trade_json:dict, other_steamid:int):
         self.trade = trade_json
         self.escrow = bool(trade_json['escrow_end_date'])
         self.items_to_receive = self._items_to_give()
         self.items_to_give = self._items_to_receive()
+        self.id = trade_json["tradeofferid"]
+        self.other_steamid = str(other_steamid)
 
     def _items_to_give(self):
         item_names = []
@@ -80,6 +211,10 @@ class Parser:
                 elif item == currencies['bud']:
                     curr[4] += 1
         return curr
+
+    def status(self):
+        trade_json = client.get_trade_offer(self.id)['response']['offer']
+        return trade_json['trade_offer_state']
 
 def check_for_updates():
     with open('__version__', 'r') as file:
@@ -144,35 +279,30 @@ def check_install(pkg, c, imp=''):
         input('press enter to close program...\n')
         os._exit(0)
 
-def check_trade(cli_obj, trade_obj, items_value, id, typ):
+def check_trade(trade_obj, items_value, typ):
     curr = trade_obj.sort(typ)
     value = calculate(curr[0], curr[1], curr[2], curr[3], curr[4])
     if typ == 'sell':
         if value >= items_value:
-            print(f'[TRADE]: Looks good! They gave us:\n{str(trade_obj.items_to_receive)}')
-            print(f'[TRADE]: We gave them:\n{str(trade_obj.items_to_give)}')
-            cli_obj.accept_trade_offer(id)
             return True
         else:
-            print(f'[TRADE]: No good! They offered us:\n{str(trade_data.items_to_receive)}')
-            print(f'[TRADE]: For our:\n{str(trade_data.items_to_give)}')
-            cli_obj.decline_trade_offer(id)
-            declined_trades.append(id)
-        return False
+            return False
     else:
         if value <= items_value:
-            print(f'[TRADE]: Looks good! They gave us:\n{str(trade_obj.items_to_receive)}')
-            print(f'[TRADE]: We gave them:\n{str(trade_obj.items_to_give)}')
-            cli_obj.accept_trade_offer(id)
             return True
         else:
-            print(f'[TRADE]: No good! They offered us:\n{str(trade_data.items_to_receive)}')
-            print(f'[TRADE]: For our:\n{str(trade_data.items_to_give)}')
-            cli_obj.decline_trade_offer(id)
-            declined_trades.append(id)
-        return False
+            return False
 
-
+def heartbeat():
+    global past_time
+    print(f"[HEARTBEAT]: {90 - int(time.time() - past_time)} seconds until can send next heartbeat")
+    if int(time.time() - past_time) >= 90:
+        p = requests.post(f"https://backpack.tf/api/aux/heartbeat/v1?", data={"token": token, "automatic": "all"})
+        if p.status_code != 200:
+            print(f'[HEARTBEAT]: Error when sending heartbeat > {p.json()["message"]}')
+        else:
+            print("[HEARTBEAT]: Sent heartbeat to backpack.tf")
+            past_time = time.time()
 
 if __name__ == '__main__':
     print(start_text)
@@ -180,7 +310,6 @@ if __name__ == '__main__':
     for pkg in packages:
         check_install(pkg, packages.index(pkg)+1, '' if pkg!='backpackpy' else 'backpack.py')
 
-    from bs4 import BeautifulSoup
     from steampy.client import SteamClient
     from steampy.exceptions import InvalidCredentials
     #from backpackpy import listings
@@ -296,88 +425,32 @@ if __name__ == '__main__':
     print('[PROGRAM]: Everything ready, starting trading.')
     print('[PROGRAM]: Press ctrl+C to close at any time.')
 
+    manager = TradeManager(client)
+
     while True:
         try:
-            print(f"[HEARTBEAT]: {90 - int(time.time() - past_time)} seconds until can send next heartbeat")
-            if int(time.time() - past_time) >= 90:
-                p = requests.post(f"https://backpack.tf/api/aux/heartbeat/v1?", data={"token":token, "automatic":"all"})
-                if p.status_code is not 200:
-                    print(f'[HEARTBEAT]: Error when sending heartbeat > {p.json()["message"]}')
-                else:
-                    print("[HEARTBEAT]: Sent heartbeat to backpack.tf")
-                    past_time = time.time()
+            heartbeat()
             try:
-                trades = client.get_trade_offers()
-                print('got trade offers')
+                manager.get_new_trades()
+                print('[TRADE-MANAGER] STEP 1 (get new trades) COMPLETE')
             except json.decoder.JSONDecodeError:
                 print("[PROGRAM]: Unexpected error, taking a break (10 seconds).")
                 time.sleep(10)
                 print('Starting again...')
                 continue
 
-            for trade in trades['response']['trade_offers_received']:
-                trade_id = trade['tradeofferid']
-                if trade_id not in declined_trades:
-                    other_id = trade['accountid_other']
-                    declined = False
-                    id64 = 76561197960265728 + other_id
-                    print(f'[TRADE]: Found trade (ID: {trade_id})')
-                    print("[TRADE]: Checking for trade bans for backpack.tf and steamrep.com")
-                    rJson = requests.get(f"https://backpack.tf/api/users/info/v1?key={bkey}&steamids={id64}").json()
-                    if "bans" in rJson['users'][str(id64)].keys():
-                        if "steamrep_caution" in rJson['users'][str(id64)]['bans'] or \
-                                "steamrep_scammer" in rJson['users'][str(id64)]['bans']:
-                            print("[steamrep.com]: WARNING SCAMMER")
-                            print('[TRADE]: Ending trade...')
-                            client.decline_trade_offer(trade_id)
-                            declined_trades.append(trade_id)
-                            print('Looking for trades...')
-                            continue
-                        print('[steamrep.com]: User is not banned')
-                        if "all" in rJson['users'][str(id64)]['bans']:
-                            print('[backpack.tf]: WARNING SCAMMER')
-                            print('[TRADE]: Ending trade...')
-                            client.decline_trade_offer(trade_id)
-                            declined_trades.append(trade_id)
-                            print('Looking for trades...')
-                            continue
-                    print("[TRADE]: User is safe to trade with")
-                    trade_data = Parser(trade)
-                    if not bool(escrow) and trade_data.escrow:
-                        declined_trades.append(trade_id)
-                        client.decline_trade_offer(trade_id)
-                        print("[TRADE]: This user's trade is escrow, declined")
-                        continue
-                    sell_value = 0
-
-                    for item in trade_data.items_to_give:
-                        print(item)
-                        if item in sell_trades:
-                            sell_value += sell_trades[item]
-
-                    if not sell_value:
-                        buy_value = 0
-                        for item in trade_data.items_to_receive:
-                            if item in buy_trades.keys():
-                                buy_value += buy_trades[item]
-
-                        if not buy_value:
-                            print(f"[TRADE]: This trade has nothing we are looking for! They offered "
-                                  f"us:\n{str(trade_data.items_to_receive)}")
-                            print(f'[TRADE]: For our:\n{str(trade_data.items_to_give)}')
-                            client.decline_trade_offer(trade_id)
-                            declined_trades.append(trade_id)
-
-                        else:
-                            check_trade(client, trade_data, buy_value, trade_id, 'buy')
-
-                    else:
-                        check_trade(client, trade_data, sell_value, trade_id, 'sell')
-
-            time.sleep(10)
+            manager.check_trades_content()
+            print('[TRADE-MANAGER]: STEP 2 (check new trades) COMPLETE')
+            manager.check_bad_trades()
+            print('[TRADE-MANAGER]: STEP 3 (check for trades gone bad) COMPLETE')
+            manager.check_good_trades()
+            print('[TRADE-MANAGER]: STEP 4 (check for successful trades) COMPLETE')
+            print('[PROGRAM]: Cooling down... (10)')
 
         except InterruptedError:
             os._exit(0)
 
         except BaseException as BE:
             print(f'[ERROR: {BE}')
+
+        time.sleep(10)
