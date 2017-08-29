@@ -48,10 +48,12 @@ class TradeOfferStatus(Enum):
 
 class TradeManager:
 
-    def __init__(self, client):
+    def __init__(self, client, conf):
         self._trades = []
         self._pending_trades = []
+        self._try_confs = []
         self.client = client
+        self.conf = conf
 
 
     def check_trades_content(self):
@@ -83,8 +85,11 @@ class TradeManager:
                 print(f'[TRADE]: Looks good! They gave us:\n{str(trade.items_to_receive)}')
                 print(f'[TRADE]: We gave them:\n{str(trade.items_to_give)}')
                 print('[TRADE]: Attempting to accept offer')
-                self.client.accept_trade_offer(trade.id)
-                self._trades.append(trade)
+                try:
+                    self.client.accept_trade_offer(trade.id)
+                    self._trades.append(trade)
+                except ConfirmationExpected:
+                    self._try_confs.append(trade.id)
                 self._pending_trades.remove(trade)
 
             else:
@@ -96,7 +101,7 @@ class TradeManager:
 
     def get_new_trades(self):
         new_trades = client.get_trade_offers()['response']
-        for new_trade in new_trades['trade_offers_received']:
+        for new_trade in new_trades['trade_offers_receive']:
             if new_trade['tradeofferid'] not in self._trades:
                 id64 = 76561197960265728 + new_trade['accountid_other']
                 trade = Trade(new_trade, id64)
@@ -162,23 +167,29 @@ class TradeManager:
                 self._trades.remove(trade)
             print(status)
 
+        for trade in self._try_confs:
+            try:
+                self.conf.send_trade_allow_request(trade.id)
+            except ConfirmationExpected:
+                pass
+
 class Trade:
 
     def __init__(self, trade_json:dict, other_steamid:int):
         self.trade = trade_json
         self.escrow = bool(trade_json['escrow_end_date'])
-        self.items_to_receive = self._items_to_give()
-        self.items_to_give = self._items_to_receive()
+        self.items_to_give = self._items_to_give()
+        self.items_to_receive = self._items_to_receive()
         self.id = trade_json["tradeofferid"]
         self.other_steamid = str(other_steamid)
 
-    def _items_to_give(self):
+    def _items_to_receive(self):
         item_names = []
         for assetID in self.trade['items_to_receive']:
             item_names.append(self.trade['items_to_receive'][assetID]['market_name'])
         return item_names
 
-    def _items_to_receive(self):
+    def _items_to_give(self):
         item_names = []
         for assetID in self.trade['items_to_give']:
             item_names.append(self.trade['items_to_give'][assetID]['market_name'])
@@ -311,7 +322,8 @@ if __name__ == '__main__':
         check_install(pkg, packages.index(pkg)+1, '' if pkg!='backpackpy' else 'backpack.py')
 
     from steampy.client import SteamClient
-    from steampy.exceptions import InvalidCredentials
+    from steampy import confirmation
+    from steampy.exceptions import InvalidCredentials, ConfirmationExpected
     #from backpackpy import listings
     import requests
 
@@ -354,6 +366,8 @@ if __name__ == '__main__':
             os._exit(1)
 
     client = SteamClient(apikey)
+    conf = None
+
     try:
         client.login(username, password, 'steamguard.json')
     except json.decoder.JSONDecodeError:
@@ -368,6 +382,11 @@ if __name__ == '__main__':
         print('[PROGRAM]: your username and/or password and/or secrets and/or ID is invalid.')
         input('press enter to close program...\n')
         os._exit(1)
+    else:
+        conf = confirmation.ConfirmationExecutor(
+            client.steam_guard['identity_secret'],
+            client.steam_guard['steamid'],
+            client._session)
 
     print(f'[PROGRAM]: Connected to steam! Logged in as {username}')
     try:
@@ -425,7 +444,7 @@ if __name__ == '__main__':
     print('[PROGRAM]: Everything ready, starting trading.')
     print('[PROGRAM]: Press ctrl+C to close at any time.')
 
-    manager = TradeManager(client)
+    manager = TradeManager(client, conf)
 
     while True:
         try:
