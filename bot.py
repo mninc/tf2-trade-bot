@@ -106,7 +106,7 @@ class TradeManager:
 
     def get_new_trades(self):
         new_trades = client.get_trade_offers()['response']
-        for new_trade in new_trades['trade_offers_recieved']:
+        for new_trade in new_trades['trade_offers_received']:
             if new_trade['tradeofferid'] not in [t.id for t in self._trades] \
                     or new_trade['tradeofferid'] in self._declined_trades:
                 id64 = 76561197960265728 + new_trade['accountid_other']
