@@ -106,7 +106,7 @@ class TradeManager:
 
     def get_new_trades(self):
         new_trades = client.get_trade_offers()['response']
-        for new_trade in new_trades['trade_offers_received']:
+        for new_trade in new_trades['trade_offers_sent']:
             if new_trade['tradeofferid'] not in [t.id for t in self._trades] \
                     or new_trade['tradeofferid'] in self._declined_trades:
                 id64 = 76561197960265728 + new_trade['accountid_other']
@@ -180,9 +180,10 @@ class TradeManager:
                 print(f'[TRADE]: Accepted trade {trade.id}')
                 self._trades.remove(trade)
 
-        for trade in self._try_confs:
+        for tradeid in self._try_confs:
             try:
-                self.conf.send_trade_allow_request(trade.id)
+                self.conf.send_trade_allow_request(tradeid)
+                print(f'[TRADE]: Accepted trade {tradeid}')
             except ConfirmationExpected:
                 pass
 
@@ -191,8 +192,8 @@ class Trade:
     def __init__(self, trade_json:dict, other_steamid:int):
         self.trade = trade_json
         self.escrow = bool(trade_json['escrow_end_date'])
-        self.items_to_give = self._items_to_give()
-        self.items_to_receive = self._items_to_receive()
+        self.items_to_receive = self._items_to_give()
+        self.items_to_give = self._items_to_receive()
         self.id = trade_json["tradeofferid"]
         self.other_steamid = str(other_steamid)
 
@@ -291,9 +292,8 @@ def calculate(scrapC, recC, refC, keyC, budC):
 
 def check_install(pkg, c, imp=''):
     try:
-        print(f"Checking install on {pkg}")
         importlib.import_module(pkg)
-        print(f'[PROGRAM]: Required package is installed {c}/4')
+        print(f'[PROGRAM]: Required package is installed {c}/{len(packages)}')
     except:
         if imp:
             pkg = imp
