@@ -17,6 +17,7 @@ items = {}
 key_price = 0
 bud_price = 0
 escrow = None
+whitelist = []
 currencies = {'bud':'Earbuds', 'ref':'Refined Metal', 'rec':'Reclaimed Metal', 'scrap':'Scrap Metal', 'key':'Mann Co. Supply Crate Key'}
 packages = ['steampy', 'requests']
 declined_trades = []
@@ -52,6 +53,7 @@ class TradeManager:
         self._trades = []
         self._pending_trades = []
         self._try_confs = []
+        self._declined_trades = []
         self.client = client
         self.conf = conf
 
@@ -75,6 +77,7 @@ class TradeManager:
                           f"us:\n{str(trade.items_to_receive)}")
                     print(f'[TRADE]: For our:\n{str(trade.items_to_give)}')
                     self.client.decline_trade_offer(trade.id)
+                    self._declined_trades.append(trade.id)
                     continue
 
             if sell_value > buy_value:
@@ -91,24 +94,33 @@ class TradeManager:
                 except ConfirmationExpected:
                     self._try_confs.append(trade.id)
                 self._pending_trades.remove(trade)
+                self._declined_trades.append(trade.id)
 
             else:
                 print(f'[TRADE]: No good! They offered us:\n{str(trade.items_to_receive)}')
                 print(f'[TRADE]: For our:\n{str(trade.items_to_give)}')
                 print('[TRADE]: Declining offer')
                 self.client.decline_trade_offer(trade.id)
+                self._declined_trades.append(trade.id)
                 self._pending_trades.remove(trade)
 
     def get_new_trades(self):
         new_trades = client.get_trade_offers()['response']
-        for new_trade in new_trades['trade_offers_receive']:
-            if new_trade['tradeofferid'] not in self._trades:
+        for new_trade in new_trades['trade_offers_sent']:
+            if new_trade['tradeofferid'] not in [t.id for t in self._trades] \
+                    or new_trade['tradeofferid'] in self._declined_trades:
                 id64 = 76561197960265728 + new_trade['accountid_other']
                 trade = Trade(new_trade, id64)
+                if str(id64) in whitelist:
+                    print(f"[WHITELIST]: Neat! This trade is whitelisted! Attempting confirmation (STEAM ID:{id64})")
+                    self.client.accept_trade_offer(trade.id)
+                    self._trades.append(trade)
+                    continue
                 print(f'[TRADE]: Found trade (ID: {trade.id})')
                 if self._check_partner(trade):
                     if not accept_escrow and trade.escrow:
                         self.client.decline_trade_offer(trade.id)
+                        self._declined_trades.append(trade.id)
                     else:
                         self._pending_trades.append(trade)
 
@@ -124,6 +136,7 @@ class TradeManager:
                 print("[steamrep.com]: WARNING SCAMMER")
                 print('[TRADE]: Ending trade...')
                 self.client.decline_trade_offer(trade.id)
+                self._declined_trades.append(trade.id)
                 return False
 
             print('[steamrep.com]: User is not banned')
@@ -131,6 +144,7 @@ class TradeManager:
                 print('[backpack.tf]: WARNING SCAMMER')
                 print('[TRADE]: Ending trade...')
                 self.client.decline_trade_offer(trade.id)
+                self._declined_trades.append(trade.id)
                 print('Looking for trades...')
                 return False
             print('[backpack.tf]: User is clean')
@@ -165,7 +179,6 @@ class TradeManager:
             if status == TradeOfferStatus.ACCEPTED.value:
                 print(f'[TRADE]: Accepted trade {trade.id}')
                 self._trades.remove(trade)
-            print(status)
 
         for trade in self._try_confs:
             try:
@@ -178,8 +191,8 @@ class Trade:
     def __init__(self, trade_json:dict, other_steamid:int):
         self.trade = trade_json
         self.escrow = bool(trade_json['escrow_end_date'])
-        self.items_to_give = self._items_to_give()
-        self.items_to_receive = self._items_to_receive()
+        self.items_to_receive = self._items_to_give()
+        self.items_to_give = self._items_to_receive()
         self.id = trade_json["tradeofferid"]
         self.other_steamid = str(other_steamid)
 
@@ -430,6 +443,17 @@ if __name__ == '__main__':
             #market_type = classified['intent']
             #price = None
 
+    try:
+        with open('whitelist.data', 'r') as file:
+            steam_ids = file.read()
+            if steam_ids:
+                for steam_id in steam_ids.split(','):
+                    whitelist.append(steam_id)
+        print(f'[WHITELIST]: Whitelist created with the following ids: {whitelist}')
+    except FileNotFoundError:
+        pass
+
+
     print('[PROGRAM]: Obtaining bud and key values from backpack.tf...')
     rJson = requests.get(f'https://backpack.tf/api/IGetCurrencies/v1?key={bkey}').json()['response']
     if rJson['success']:
@@ -470,6 +494,6 @@ if __name__ == '__main__':
             os._exit(0)
 
         except BaseException as BE:
-            print(f'[ERROR: {BE}')
+            print(f'[ERROR]: {type(BE).__name__}: {BE}')
 
         time.sleep(10)
