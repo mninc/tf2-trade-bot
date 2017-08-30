@@ -106,7 +106,7 @@ class TradeManager:
 
     def get_new_trades(self):
         new_trades = client.get_trade_offers()['response']
-        for new_trade in new_trades['trade_offers_sent']:
+        for new_trade in new_trades['trade_offers_recieved']:
             if new_trade['tradeofferid'] not in [t.id for t in self._trades] \
                     or new_trade['tradeofferid'] in self._declined_trades:
                 id64 = 76561197960265728 + new_trade['accountid_other']
@@ -191,8 +191,8 @@ class Trade:
     def __init__(self, trade_json:dict, other_steamid:int):
         self.trade = trade_json
         self.escrow = bool(trade_json['escrow_end_date'])
-        self.items_to_receive = self._items_to_give()
-        self.items_to_give = self._items_to_receive()
+        self.items_to_give = self._items_to_give()
+        self.items_to_receive = self._items_to_receive()
         self.id = trade_json["tradeofferid"]
         self.other_steamid = str(other_steamid)
 
