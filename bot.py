@@ -5,6 +5,7 @@ from distutils.version import LooseVersion
 import importlib
 import pip
 from enum import Enum
+import logging
 
 
 apikey = ''
@@ -22,6 +23,9 @@ currencies = {'bud':'Earbuds', 'ref':'Refined Metal', 'rec':'Reclaimed Metal', '
 packages = ['steampy', 'requests']
 declined_trades = []
 past_time = time.time()
+
+logging.basicConfig(filename='trade.log', level=logging.DEBUG,
+                    format='[%(asctime)s][%(levelname)s][%(name)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 
 start_text = """
   _____    _____  ____         _____    ____        _      ____  U _____ u       ____     U  ___ u _____   
@@ -67,58 +71,68 @@ class TradeManager:
                 if item in sell_trades:
                     sell_value += sell_trades[item]
 
-            if not sell_value:
-                for item in trade.items_to_receive:
-                    if item in buy_trades.keys():
-                        buy_value += buy_trades[item]
+            for item in trade.items_to_receive:
+                if item in buy_trades.keys():
+                    buy_value += buy_trades[item]
 
-                if not buy_value:
-                    print(f"[TRADE]: This trade has nothing we are looking for! They offered "
-                          f"us:\n{str(trade.items_to_receive)}")
-                    print(f'[TRADE]: For our:\n{str(trade.items_to_give)}')
-                    self.client.decline_trade_offer(trade.id)
-                    self._declined_trades.append(trade.id)
-                    continue
+            logging.debug(f'TRADE: {trade.id}\nSELL-VALUE: {sell_value}\tBUY-VALUE: {buy_value}')
+
+            if not buy_value and not sell_value:
+                print(f"[TRADE]: This trade has nothing we are looking for! They offered "
+                      f"us:\n{str(trade.items_to_receive)}")
+                print(f'[TRADE]: For our:\n{str(trade.items_to_give)}')
+                self.client.decline_trade_offer(trade.id)
+                self._declined_trades.append(trade.id)
+                logging.info(f'DECLINED TRADE: {trade.id}\nREASON: Nothing of interest')
+                continue
 
             if sell_value > buy_value:
                 response = check_trade(trade, sell_value, 'sell')
             else:
                 response = check_trade(trade, buy_value, 'buy')
+
             if response:
                 print(f'[TRADE]: Looks good! They gave us:\n{str(trade.items_to_receive)}')
                 print(f'[TRADE]: We gave them:\n{str(trade.items_to_give)}')
                 print('[TRADE]: Attempting to accept offer')
                 try:
+                    logging.info(f"ATTEMPTING TRADE: {trade.id}\nSELL: {sell_value} BUY:{buy_value}\n{trade.trade}")
                     self.client.accept_trade_offer(trade.id)
                     self._trades.append(trade)
                 except ConfirmationExpected:
+                    logging.warning(f'FAILED TO CONFIRM TRADE: {trade.id} (FIRST TRY)')
                     self._try_confs.append(trade.id)
                 self._pending_trades.remove(trade)
-                self._declined_trades.append(trade.id)
-
+                self._trades.append(trade.id)
             else:
                 print(f'[TRADE]: No good! They offered us:\n{str(trade.items_to_receive)}')
                 print(f'[TRADE]: For our:\n{str(trade.items_to_give)}')
                 print('[TRADE]: Declining offer')
+                logging.info(f"DECLINING INVALID TRADE: {trade.id}\nSELL: {sell_value} BUY:{buy_value}\n{trade.trade}")
                 self.client.decline_trade_offer(trade.id)
                 self._declined_trades.append(trade.id)
                 self._pending_trades.remove(trade)
 
     def get_new_trades(self):
         new_trades = client.get_trade_offers()['response']
-        for new_trade in new_trades['trade_offers_received']:
+        logging.debug(str(new_trades))
+        for new_trade in new_trades['trade_offers_sent']:
             if new_trade['tradeofferid'] not in [t.id for t in self._trades] \
                     or new_trade['tradeofferid'] in self._declined_trades:
                 id64 = 76561197960265728 + new_trade['accountid_other']
                 trade = Trade(new_trade, id64)
+                logging.info(f"FOUND NEW TRADE: {trade.id}")
                 if str(id64) in whitelist:
                     print(f"[WHITELIST]: Neat! This trade is whitelisted! Attempting confirmation (STEAM ID:{id64})")
+                    logging.info(f'TRADE WHITELISTED ATTEMPTING TRADE: {trade.id}')
                     self.client.accept_trade_offer(trade.id)
                     self._trades.append(trade)
                     continue
                 print(f'[TRADE]: Found trade (ID: {trade.id})')
                 if self._check_partner(trade):
                     if not accept_escrow and trade.escrow:
+                        print("[TRADE]: Trade is escrow, declining")
+                        logging.info(f'DECLINING ESCROW TRADE: {trade.trade}')
                         self.client.decline_trade_offer(trade.id)
                         self._declined_trades.append(trade.id)
                     else:
@@ -130,11 +144,13 @@ class TradeManager:
         rJson = requests.get(f"https://backpack.tf/api/users/info/v1?",
                              data={'key':bkey, 'steamids':trade.other_steamid}).json()
 
+        logging.debug(str(rJson))
         if "bans" in rJson['users'][trade.other_steamid].keys():
             if "steamrep_caution" in rJson['users'][trade.other_steamid]['bans'] or \
                             "steamrep_scammer" in rJson['users'][trade.other_steamid]['bans']:
                 print("[steamrep.com]: WARNING SCAMMER")
                 print('[TRADE]: Ending trade...')
+                logging.info(f"DECLINED SCAMMER (ID:{trade.other_steamid})")
                 self.client.decline_trade_offer(trade.id)
                 self._declined_trades.append(trade.id)
                 return False
@@ -143,9 +159,9 @@ class TradeManager:
             if "all" in rJson['users'][trade.other_steamid]['bans']:
                 print('[backpack.tf]: WARNING SCAMMER')
                 print('[TRADE]: Ending trade...')
+                logging.info(f"DECLINED SCAMMER (ID:{trade.other_steamid})")
                 self.client.decline_trade_offer(trade.id)
                 self._declined_trades.append(trade.id)
-                print('Looking for trades...')
                 return False
             print('[backpack.tf]: User is clean')
         print("[backpack.tf/steamrep.com]: User is clean")
@@ -159,18 +175,23 @@ class TradeManager:
             if status == TradeOfferStatus.INVALID.value:
                 print(f'[ERROR]: Trade offer id {trade.id} seems to be invalid')
                 self._trades.remove(trade)
+                logging.warning(f'TRADE {trade.id} BECAME invalid')
             elif status == TradeOfferStatus.CANCELED.value:
                 print(f'[TRADE]: Trade {trade.id} was canceled.')
                 self._trades.remove(trade)
+                logging.warning(f'TRADE {trade.id} BECAME canceled')
             elif status == TradeOfferStatus.EXPIRED.value:
                 print(f'[TRADE]: Trade {trade.id} has expired... How did that happen?')
                 self._trades.remove(trade)
+                logging.warning(f'TRADE {trade.id} BECAME expired')
             elif status == TradeOfferStatus.INVALID_ITEMS.value:
                 print(f'[TRADE]: Items attempting to trade became invalid. {trade.id}')
                 self._trades.remove(trade)
+                logging.warning(f'TRADE {trade.id} BECAME invalid_items')
             elif status == TradeOfferStatus.ESCROW.value and not accept_escrow:
                 print('[ERROR]: Whoops, escrow trade was confirmed. Sorry about that')
-
+                self._trades.remove(trade)
+                logging.fatal(f'ACCEPTED ESCROW TRADE')
 
     def check_good_trades(self):
         for trade_index in range(len(self._trades) - 1, -1, -1):
@@ -179,21 +200,24 @@ class TradeManager:
             if status == TradeOfferStatus.ACCEPTED.value:
                 print(f'[TRADE]: Accepted trade {trade.id}')
                 self._trades.remove(trade)
+                logging.info(f'TRADE {trade.id} WAS ACCEPTED')
 
         for tradeid in self._try_confs:
             try:
                 self.conf.send_trade_allow_request(tradeid)
                 print(f'[TRADE]: Accepted trade {tradeid}')
+                logging.info(f'TRADE {trade.id} WAS ACCEPTED (after manual confirmation)')
             except ConfirmationExpected:
                 pass
+            logging.debug(f'CONFIRMATION FAILED ON {trade.id}')
 
 class Trade:
 
     def __init__(self, trade_json:dict, other_steamid:int):
         self.trade = trade_json
-        self.escrow = bool(trade_json['escrow_end_date'])
-        self.items_to_give = self._items_to_give()
-        self.items_to_receive = self._items_to_receive()
+        self.escrow = int(trade_json['escrow_end_date'])
+        self.items_to_receive = self._items_to_give()
+        self.items_to_give = self._items_to_receive()
         self.id = trade_json["tradeofferid"]
         self.other_steamid = str(other_steamid)
 
@@ -294,7 +318,9 @@ def check_install(pkg, c, imp=''):
     try:
         importlib.import_module(pkg)
         print(f'[PROGRAM]: Required package is installed {c}/{len(packages)}')
+        logging.debug(f"MODUAL {pkg} IS INSTALLED")
     except:
+        logging.info("MODUAL {pkg} IS NOT INSTALLED")
         if imp:
             pkg = imp
         print('[PROGRAM]: A required package is not installed, installing...')
@@ -306,6 +332,7 @@ def check_install(pkg, c, imp=''):
 def check_trade(trade_obj, items_value, typ):
     curr = trade_obj.sort(typ)
     value = calculate(curr[0], curr[1], curr[2], curr[3], curr[4])
+    logging.debug(f"TRADE {trade_obj.id} is a {typ} trade, and is worth {value}, with items being {items_value}")
     if typ == 'sell':
         if value >= items_value:
             return True
@@ -324,8 +351,10 @@ def heartbeat():
         p = requests.post(f"https://backpack.tf/api/aux/heartbeat/v1?", data={"token": token, "automatic": "all"})
         if p.status_code != 200:
             print(f'[HEARTBEAT]: Error when sending heartbeat > {p.json()["message"]}')
+            logging.warning(f"ERROR SENDING HEARTBEAT: {p.json()['message']}")
         else:
             print("[HEARTBEAT]: Sent heartbeat to backpack.tf")
+            logging.info("HEARTBEAT SENT")
             past_time = time.time()
 
 if __name__ == '__main__':
@@ -351,15 +380,19 @@ if __name__ == '__main__':
                                             data['password'], data['username'], data['bkey'], data['accept_escrow']
                     token = requests.get(f"https://backpack.tf/api/aux/token/v1?key={bkey}").json()['token']
                 except KeyError as k:
+                    logging.warning(f'SETTINGS FILE MISSING {k} VALUE')
                     print(f'[settings.json]: Whoops! You are missing the {k} value')
                     input('press enter to close program...\n')
                     os._exit(1)
             except json.JSONDecodeError:
+                logging.warning('INVALID SETTINGS FILE')
                 print('[PROGRAM]: Whoops! It would seem that you settings.json folder is invalid!')
                 input('press enter to close program...\n')
                 os._exit(1)
+        logging.debug("LOADED SETTINGS")
 
     except FileNotFoundError:
+        logging.warning("SETTINGS NOT FOUND, CREATING")
         print('[PROGRAM]: File settings.json not found! Would you like to make one?')
         yn = input('[y/n]: ')
         if yn[0].lower() == 'y':
@@ -384,14 +417,17 @@ if __name__ == '__main__':
     try:
         client.login(username, password, 'steamguard.json')
     except json.decoder.JSONDecodeError:
+        logging.warning("STEAMGUARD FILE INVALID")
         print('[steamguard.json]: Unable to read file.')
         input('press enter to close program...\n')
         os._exit(1)
     except FileNotFoundError:
+        logging.warning("UNABLE TO FIND STEAMGAURD FILE")
         print('[steamguard.json]: Unable to find file.')
         input('press enter to close program...\n')
         os._exit(1)
     except InvalidCredentials:
+        logging.info("CREDENTIALS INVALID")
         print('[PROGRAM]: your username and/or password and/or secrets and/or ID is invalid.')
         input('press enter to close program...\n')
         os._exit(1)
@@ -400,6 +436,7 @@ if __name__ == '__main__':
             client.steam_guard['identity_secret'],
             client.steam_guard['steamid'],
             client._session)
+        logging.info("CREATED CLIENT AND CONFIRMATION MANAGER")
 
     print(f'[PROGRAM]: Connected to steam! Logged in as {username}')
     try:
@@ -414,34 +451,39 @@ if __name__ == '__main__':
                     else:
                         buy_trades[item] = float(price)
                 except ValueError:
+                    logging.warning("TRADE DATA IS IN AN INVALID FORMAT")
                     print(f'[trade.data]: Whoops! Invalid data on line {count}, make sure each line looks like the following,')
                     print('<item market name>, <price (float)>, <type (sell, buy)>')
                     input('press enter to close program...\n')
                     os._exit(1)
                 count += 1
+            file.seek(0)
+            slash_n = '\n'
+            logging.info(f'LOADED TRADE DATA: {file.read().replace(slash_n, "   ")}')
     except FileNotFoundError:
+        logging.warning("TRADE FILE NOT FOUND")
         print('[trade.data]: Unable to find file.')
         input('press enter to close program...\n')
         os._exit(1)
     print('[PROGRAM]: Finished loading trading data.')
 
-    #yn = input("Would you like to sync to backpack.tf listings?\n[y/n]: ")
-    #if yn[0].lower() == 'y':
-        #steamid = client.steam_guard['steamid']
-        #steam_inv = requests.get(f'http://steamcommunity.com/inventory/{steamid}/440/2?l=english&count=5000').json()
-        #bp_listings = requests.get("https://backpack.tf/api/classifieds/listings/v1?", data={'token':token}).json()
-        #class_id = False
-        #for classified in bp_listings["listings"]:
-            #asset_id = classified['id']
-            #for item in steam_inv['assets']:
-                #if item['assetid'] == classified['id']:
-                    #class_id = item['classid']
-            #if class_id:
-                #for item in steam_inv['descriptions']:
-                    #if item['classid'] == class_id:
-                        #market_name = item['market_name']
-            #market_type = classified['intent']
-            #price = None
+    # #yn = input("Would you like to sync to backpack.tf listings?\n[y/n]: ")
+    # #if yn[0].lower() == 'y':
+    #     steamid = client.steam_guard['steamid']
+    #     steam_inv = requests.get(f'http://steamcommunity.com/inventory/{steamid}/440/2?l=english&count=5000').json()
+    #     bp_listings = requests.get("https://backpack.tf/api/classifieds/listings/v1?", data={'token':token}).json()
+    #     class_id = False
+    #     for classified in bp_listings["listings"]:
+    #         asset_id = classified['id']
+    #         for item in steam_inv['assets']:
+    #             if item['assetid'] == classified['id']:
+    #                 class_id = item['classid']
+    #         if class_id:
+    #             for item in steam_inv['descriptions']:
+    #                 if item['classid'] == class_id:
+    #                     market_name = item['market_name']
+    #         market_type = classified['intent']
+    #         price = None
 
     try:
         with open('whitelist.data', 'r') as file:
@@ -450,17 +492,21 @@ if __name__ == '__main__':
                 for steam_id in steam_ids.split(','):
                     whitelist.append(steam_id)
         print(f'[WHITELIST]: Whitelist created with the following ids: {whitelist}')
+        logging.info(f"LOADED WHITELIST: {whitelist}")
     except FileNotFoundError:
-        pass
+        logging.debug("WHITELIST NOT FOUND")
 
 
     print('[PROGRAM]: Obtaining bud and key values from backpack.tf...')
     rJson = requests.get(f'https://backpack.tf/api/IGetCurrencies/v1?key={bkey}').json()['response']
+    logging.debug(f"KEY VALUE RESPONSE: {rJson}")
     if rJson['success']:
         key_price = float(rJson['currencies']['keys']['price']['value'])
         bud_price = float(rJson['currencies']['earbuds']['price']['value'])
         print(f'[PROGRAM]: Obtained values! KEY <{key_price} ref>, BUD <{bud_price} keys>.')
+        logging.debug("OBTAINED KEY AND BUD VALUES")
     else:
+        logging.fatal("FAILED TO OBTAIN KEY AND BUG VALUES")
         print(f'[backpack.tf]: {rJson["message"]}')
         input('press enter to close program...\n')
         os._exit(1)
@@ -476,6 +522,7 @@ if __name__ == '__main__':
             try:
                 manager.get_new_trades()
                 print('[TRADE-MANAGER] STEP 1 (get new trades) COMPLETE')
+                logging.debug("(STEP 1 COMPLETE)")
             except json.decoder.JSONDecodeError:
                 print("[PROGRAM]: Unexpected error, taking a break (10 seconds).")
                 time.sleep(10)
@@ -484,10 +531,13 @@ if __name__ == '__main__':
 
             manager.check_trades_content()
             print('[TRADE-MANAGER]: STEP 2 (check new trades) COMPLETE')
+            logging.debug("(STEP 2 COMPLETE)")
             manager.check_bad_trades()
             print('[TRADE-MANAGER]: STEP 3 (check for trades gone bad) COMPLETE')
+            logging.debug("(STEP 3 COMPLETE)")
             manager.check_good_trades()
             print('[TRADE-MANAGER]: STEP 4 (check for successful trades) COMPLETE')
+            logging.debug("(STEP 4 COMPLETE)")
             print('[PROGRAM]: Cooling down... (10)')
 
         except InterruptedError:
@@ -495,5 +545,6 @@ if __name__ == '__main__':
 
         except BaseException as BE:
             print(f'[ERROR]: {type(BE).__name__}: {BE}')
+            logging.warning(f"UNEXPECTED ERROR: {type(BE).__name__}: {BE}")
 
         time.sleep(10)
