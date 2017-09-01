@@ -103,7 +103,7 @@ class TradeManager:
                     logging.warning(f'FAILED TO CONFIRM TRADE: {trade.id} (FIRST TRY)')
                     self._try_confs.append(trade.id)
                 self._pending_trades.remove(trade)
-                self._trades.append(trade.id)
+                self._trades.append(trade)
             else:
                 print(f'[TRADE]: No good! They offered us:\n{str(trade.items_to_receive)}')
                 print(f'[TRADE]: For our:\n{str(trade.items_to_give)}')
