@@ -18,3 +18,11 @@ If you are here, you have added your ID and secrets too steamguard.json, passwor
 This bot was made completly by me, Zwork101. It is under the MIT liscence. I am not responsible for any loss you might receive whilst using this program. If you enjoyed this bot, steam item donation's are accepted!
 
 ### With love, Zwork101
+
+# to-do list
+ * Add catch for when items become unavailible to trade
+ * Neaten and make code more efficint
+ * change current input to csv for trade.data
+ * add 2 seperate logs, one for debugging, one for trades
+ * add ability to sync bot's trades with backpack.tf
+ * add GUI?
