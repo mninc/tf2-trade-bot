@@ -206,10 +206,10 @@ class TradeManager:
             try:
                 self.conf.send_trade_allow_request(tradeid)
                 print(f'[TRADE]: Accepted trade {tradeid}')
-                logging.info(f'TRADE {trade.id} WAS ACCEPTED (after manual confirmation)')
+                logging.info(f'TRADE {tradeid} WAS ACCEPTED (after manual confirmation)')
             except ConfirmationExpected:
-                pass
-            logging.debug(f'CONFIRMATION FAILED ON {trade.id}')
+                logging.debug(f'CONFIRMATION FAILED ON {tradeid}')
+
 
 class Trade:
 
