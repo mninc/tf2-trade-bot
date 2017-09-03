@@ -6,6 +6,7 @@ import importlib
 import pip
 from enum import Enum
 import logging
+import csv
 
 
 apikey = ''
@@ -69,7 +70,7 @@ class TradeManager:
         except BaseException as BE:
             logging.warning(f'TRADE ACCEPT ERROR: {type(BE).__name__}: {BE}')
             return False
-            
+
 
     def check_trades_content(self):
         for trade in range(len(self._pending_trades)-1,-1,-1):
@@ -449,26 +450,14 @@ if __name__ == '__main__':
 
     print(f'[PROGRAM]: Connected to steam! Logged in as {username}')
     try:
-        with open('trade.data', 'r') as file:
-            count = 1
-            for line in file:
-                try:
-                    item, price, typ = line.split(',')
-                    item, price, typ = item.strip(), price.strip(), typ.strip()
-                    if typ[0].lower() == 's':
-                        sell_trades[item] = float(price)
-                    else:
-                        buy_trades[item] = float(price)
-                except ValueError:
-                    logging.warning("TRADE DATA IS IN AN INVALID FORMAT")
-                    print(f'[trade.data]: Whoops! Invalid data on line {count}, make sure each line looks like the following,')
-                    print('<item market name>, <price (float)>, <type (sell, buy)>')
-                    input('press enter to close program...\n')
-                    os._exit(1)
-                count += 1
-            file.seek(0)
-            slash_n = '\n'
-            logging.info(f'LOADED TRADE DATA: {file.read().replace(slash_n, "   ")}')
+        with open('trade.csv', 'r') as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                if row['type'].strip()[0].lower() == 's':
+                    sell_trades[row['item_name'].strip()] = float(row['price'])
+                elif row['type'].strip()[0].lower() == 'b':
+                    buy_trades[row['item_name'].strip()] = float(row['price'])
+            logging.info(f'LOADED TRADE DATA: BUY: {buy_trades} SELL: {sell_trades}')
     except FileNotFoundError:
         logging.warning("TRADE FILE NOT FOUND")
         print('[trade.data]: Unable to find file.')
