@@ -1,0 +1,6 @@
+item_name,price,type
+# Delete this line and ones that follow for your trades. DO NOT DELETE FIRST LINE.
+# A trade should look like this: (maret name of item), (price in ref), (type: buy/sell MUST BE EXACTLY buy or sell)
+# for example:
+Genuine Ham Shank, 2.44, buy
+Genuine Ham Shank, 2.55, sell
