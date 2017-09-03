@@ -62,6 +62,15 @@ class TradeManager:
         self.conf = conf
 
 
+    def accept(self, trade):
+        try:
+            self.client.accept_trade_offer(trade.id)
+            return True
+        except BaseException as BE:
+            logging.warning(f'TRADE ACCEPT ERROR: {type(BE).__name__}: {BE}')
+            return False
+            
+
     def check_trades_content(self):
         for trade in range(len(self._pending_trades)-1,-1,-1):
             trade = self._pending_trades[trade]
@@ -97,7 +106,7 @@ class TradeManager:
                 print('[TRADE]: Attempting to accept offer')
                 try:
                     logging.info(f"ATTEMPTING TRADE: {trade.id}\nSELL: {sell_value} BUY:{buy_value}\n{trade.trade}")
-                    self.client.accept_trade_offer(trade.id)
+                    self.accept(trade)
                     self._trades.append(trade)
                 except ConfirmationExpected:
                     logging.warning(f'FAILED TO CONFIRM TRADE: {trade.id} (FIRST TRY)')
@@ -125,7 +134,7 @@ class TradeManager:
                 if str(id64) in whitelist:
                     print(f"[WHITELIST]: Neat! This trade is whitelisted! Attempting confirmation (STEAM ID:{id64})")
                     logging.info(f'TRADE WHITELISTED ATTEMPTING TRADE: {trade.id}')
-                    self.client.accept_trade_offer(trade.id)
+                    self.accept(trade)
                     self._trades.append(trade)
                     continue
                 print(f'[TRADE]: Found trade (ID: {trade.id})')
