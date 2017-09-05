@@ -454,9 +454,15 @@ if __name__ == '__main__':
             reader = csv.DictReader(file)
             for row in reader:
                 if row['type'].strip()[0].lower() == 's':
-                    sell_trades[row['item_name'].strip()] = float(row['price'])
+                    p = row['price'].split('.')
+                    p = [int(i) for i in p]
+                    price = calculate(p[0], p[1], p[2], p[3], p[4])
+                    sell_trades[row['item_name'].strip()] = price
                 elif row['type'].strip()[0].lower() == 'b':
-                    buy_trades[row['item_name'].strip()] = float(row['price'])
+                    p = row['price'].split('.')
+                    p = [int(i) for i in p]
+                    price = calculate(p[0], p[1], p[2], p[3], p[4])
+                    buy_trades[row['item_name'].strip()] = price
             logging.info(f'LOADED TRADE DATA: BUY: {buy_trades} SELL: {sell_trades}')
     except FileNotFoundError:
         logging.warning("TRADE FILE NOT FOUND")
