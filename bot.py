@@ -452,25 +452,31 @@ if __name__ == '__main__':
     try:
         with open('trade.csv', 'r') as file:
             reader = csv.DictReader(file)
+            count = 1
+            fails = []
             for row in reader:
-                if row['type'].strip()[0].lower() == 's':
-                    p = row['price'].split('.')
-                    p = [int(i) for i in p]
-                    price = calculate(p[0], p[1], p[2], p[3], p[4])
-                    sell_trades[row['item_name'].strip()] = price
-                elif row['type'].strip()[0].lower() == 'b':
-                    p = row['price'].split('.')
-                    p = [int(i) for i in p]
-                    price = calculate(p[0], p[1], p[2], p[3], p[4])
-                    buy_trades[row['item_name'].strip()] = price
+                count += 1
+                try:
+                    if row['type'].strip()[0].lower() == 's':
+                        p = row['price'].split('.')
+                        p = [int(i) for i in p]
+                        price = calculate(p[0], p[1], p[2], p[3], p[4])
+                        sell_trades[row['item_name'].strip()] = price
+                    elif row['type'].strip()[0].lower() == 'b':
+                        p = row['price'].split('.')
+                        p = [int(i) for i in p]
+                        price = calculate(p[0], p[1], p[2], p[3], p[4])
+                        buy_trades[row['item_name'].strip()] = price
+                except AttributeError:
+                    fails.append(count)
             logging.info(f'LOADED TRADE DATA: BUY: {buy_trades} SELL: {sell_trades}')
     except FileNotFoundError:
         logging.warning("TRADE FILE NOT FOUND")
         print('[trade.data]: Unable to find file.')
         input('press enter to close program...\n')
         os._exit(1)
+    print(f'[CSV: Failed to load these lines: {fails}')
     print('[PROGRAM]: Finished loading trading data.')
-
     # #yn = input("Would you like to sync to backpack.tf listings?\n[y/n]: ")
     # #if yn[0].lower() == 'y':
     #     steamid = client.steam_guard['steamid']
