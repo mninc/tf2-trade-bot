@@ -8,7 +8,6 @@ from enum import Enum
 import logging
 import csv
 
-
 apikey = ''
 password = ''
 username = ''
@@ -54,6 +53,13 @@ class TradeOfferStatus(Enum):
 
 class TradeManager:
 
+    """
+    The manager for trades. This will be used to organize trades and keep everything from falling apart.
+    Prams: client (steampy.client.SteamClient object, and conf, steampy.confirmation.ConfirmationExecutor
+    Public values: client and conf (see above)
+    Public functions: accept, check_trades_content, get_new_trades, check_good_trades, check_bad_trades
+    """
+
     def __init__(self, client, conf):
         self._trades = []
         self._pending_trades = []
@@ -64,6 +70,11 @@ class TradeManager:
 
 
     def accept(self, trade):
+        """
+        The accept function handles accepting trades. This is important, because different errors could occur.
+        Prams: (self), trade (Trade object)
+        Output: None
+        """
         try:
             self.client.accept_trade_offer(trade.id)
             return True
@@ -73,6 +84,13 @@ class TradeManager:
 
 
     def check_trades_content(self):
+        """
+        This will check the current trades in self._pending_trades and decide if they are good or not
+        Then it will move the good trades to self._declined_trades and self._trades after acccepting/declining
+        trade offers.
+        Prams: (self)
+        Output: None
+        """
         for trade in range(len(self._pending_trades)-1,-1,-1):
             trade = self._pending_trades[trade]
             sell_value = 0
@@ -124,6 +142,13 @@ class TradeManager:
                 self._pending_trades.remove(trade)
 
     def get_new_trades(self):
+        """
+        Collects new trades, Will compare them to current trades to ensure they are new. Will also accept if the trade
+        if white listed. It will also delcine the trade if the user is a scammer or escrow. If not, moved it to
+        self._pending_trades (list)
+        Prams: (self)
+        Output: None
+        """
         new_trades = client.get_trade_offers()['response']
         logging.debug(str(new_trades))
         for new_trade in new_trades['trade_offers_received']:
@@ -150,6 +175,13 @@ class TradeManager:
 
 
     def _check_partner(self, trade):
+        """
+        To check backpack.tf and steamrep for the user, in case they are a scammer. This uses the backpack.tf API.
+        The API will supply the steamrep stats for the user. If a scammer,
+        will decline and move trade to self._declined_trades.
+        Prams: (self), trade (Trade object)
+        Output: None
+        """
         print("[TRADE]: Checking for trade bans for backpack.tf and steamrep.com")
         rJson = requests.get(f"https://backpack.tf/api/users/info/v1?",
                              data={'key':bkey, 'steamids':trade.other_steamid}).json()
@@ -179,6 +211,12 @@ class TradeManager:
 
 
     def check_bad_trades(self):
+        """
+        Looks at the current trades in self._trades, will check if the trade has become invalid, like
+        if the trade was cancled, it will remove it from trades and report what happned to the user
+        Prams: (self)
+        Output: None
+        """
         for trade_index in range(len(self._trades)-1, -1, -1):
             trade = self._trades[trade_index]
             status = trade.status()
@@ -204,6 +242,14 @@ class TradeManager:
                 logging.fatal(f'ACCEPTED ESCROW TRADE')
 
     def check_good_trades(self):
+        """
+        This method does 2 things. The first thing it does is check to see if trades have been accepted.
+        If they have, they will be removed from self._trades and will report that the trade was accepted.
+        The second thing is to try and confirm trades that are having issues confirming. If it was confirmed,
+        it will be removed from self._try_confs, and report to user it was confirmed.
+        Prams: (self)
+        Output: None
+        """
         for trade_index in range(len(self._trades) - 1, -1, -1):
             trade = self._trades[trade_index]
             status = trade.status()
@@ -217,11 +263,21 @@ class TradeManager:
                 self.conf.send_trade_allow_request(tradeid)
                 print(f'[TRADE]: Accepted trade {tradeid}')
                 logging.info(f'TRADE {tradeid} WAS ACCEPTED (after manual confirmation)')
+                self._try_confs.remove(tradeid)
             except ConfirmationExpected:
                 logging.debug(f'CONFIRMATION FAILED ON {tradeid}')
 
 
 class Trade:
+
+    """
+    This is an object mainly to store data about a trade, and make it easy to access. It can also
+    Sort a trades currencies, and fetch the status of it's trade.
+    Prams: trade_json (dict), other_steamid (str)
+    Public values: self.trade (dict), self.escrow (int), self.items_to_give (list), self.items_to_receive (list),
+    self.id (int/str), self.other_steamid (str)
+    Public functions: sort, status
+    """
 
     def __init__(self, trade_json:dict, other_steamid:int):
         self.trade = trade_json
@@ -232,18 +288,34 @@ class Trade:
         self.other_steamid = str(other_steamid)
 
     def _items_to_receive(self):
+        """
+        Adds all items to self.items_to_receive as their market name. Should only be used in initialization.
+        Prams: (self)
+        Output: item_names (list)
+        """
         item_names = []
         for assetID in self.trade['items_to_receive']:
             item_names.append(self.trade['items_to_receive'][assetID]['market_name'])
         return item_names
 
     def _items_to_give(self):
+        """
+        Adds all items to self.items_to_give as their market name. Should only be used in initialization.
+        Prams: (self)
+        Output: item_names (list)
+        """
         item_names = []
         for assetID in self.trade['items_to_give']:
             item_names.append(self.trade['items_to_give'][assetID]['market_name'])
         return item_names
 
     def sort(self, typ):
+        """
+        Counts the amount of a currency type there is in one side of the trade. "sort" is missleading-ish, it's
+        just counting the amount of scrap, rec, ref, key, and bud there is.
+        Prams: (self), type (str)
+        Output: curr (list)
+        """
         curr = [0, 0, 0, 0, 0]
         if typ == 'sell':
             for item in self.items_to_receive:
@@ -272,6 +344,11 @@ class Trade:
         return curr
 
     def status(self):
+        """
+        Fetches the status of the trade from steam. This way we can get live data.
+        Prams: (self)
+        Output: trade_json['trade_offer_state'] (int/str)
+        """
         trade_json = client.get_trade_offer(self.id)['response']['offer']
         return trade_json['trade_offer_state']
 
@@ -424,6 +501,20 @@ if __name__ == '__main__':
     client = SteamClient(apikey)
     conf = None
 
+    print('[PROGRAM]: Obtaining bud and key values from backpack.tf...')
+    rJson = requests.get(f'https://backpack.tf/api/IGetCurrencies/v1?key={bkey}').json()['response']
+    logging.debug(f"KEY VALUE RESPONSE: {rJson}")
+    if rJson['success']:
+        key_price = rJson['currencies']['keys']['price']['value']
+        bud_price = rJson['currencies']['earbuds']['price']['value']
+        print(f'[PROGRAM]: Obtained values! KEY <{key_price} ref>, BUD <{bud_price} keys>.')
+        logging.debug("OBTAINED KEY AND BUD VALUES")
+    else:
+        logging.fatal("FAILED TO OBTAIN KEY AND BUG VALUES")
+        print(f'[backpack.tf]: {rJson["message"]}')
+        input('press enter to close program...\n')
+        os._exit(1)
+
     try:
         client.login(username, password, 'steamguard.json')
     except json.decoder.JSONDecodeError:
@@ -477,8 +568,8 @@ if __name__ == '__main__':
         os._exit(1)
     print(f'[CSV: Failed to load these lines: {fails}')
     print('[PROGRAM]: Finished loading trading data.')
-    # #yn = input("Would you like to sync to backpack.tf listings?\n[y/n]: ")
-    # #if yn[0].lower() == 'y':
+    # yn = input("Would you like to sync to backpack.tf listings?\n[y/n]: ")
+    # if yn[0].lower() == 'y':
     #     steamid = client.steam_guard['steamid']
     #     steam_inv = requests.get(f'http://steamcommunity.com/inventory/{steamid}/440/2?l=english&count=5000').json()
     #     bp_listings = requests.get("https://backpack.tf/api/classifieds/listings/v1?", data={'token':token}).json()
@@ -493,7 +584,19 @@ if __name__ == '__main__':
     #                 if item['classid'] == class_id:
     #                     market_name = item['market_name']
     #         market_type = classified['intent']
-    #         price = None
+    #         ref, keys = classified['currencies']['metal'], classified['currencies']['keys']
+    #         sep = str(ref).split('.')
+    #         if len(sep) == 2:
+    #             price = calculate(int(sep[0])/11, 0, int(sep[0]), keys, 0)
+    #         else:
+    #             price = calculate(0, 0, int(ref), keys, 0)
+    #         if market_type:
+    #             sell_trades[market_name] = price
+    #         else:
+    #             buy_trades[market_name] = price
+    # print(buy_trades)
+    # print(sell_trades)
+    # os._exit(0)
 
     try:
         with open('whitelist.data', 'r') as file:
@@ -505,21 +608,6 @@ if __name__ == '__main__':
         logging.info(f"LOADED WHITELIST: {whitelist}")
     except FileNotFoundError:
         logging.debug("WHITELIST NOT FOUND")
-
-
-    print('[PROGRAM]: Obtaining bud and key values from backpack.tf...')
-    rJson = requests.get(f'https://backpack.tf/api/IGetCurrencies/v1?key={bkey}').json()['response']
-    logging.debug(f"KEY VALUE RESPONSE: {rJson}")
-    if rJson['success']:
-        key_price = float(rJson['currencies']['keys']['price']['value'])
-        bud_price = float(rJson['currencies']['earbuds']['price']['value'])
-        print(f'[PROGRAM]: Obtained values! KEY <{key_price} ref>, BUD <{bud_price} keys>.')
-        logging.debug("OBTAINED KEY AND BUD VALUES")
-    else:
-        logging.fatal("FAILED TO OBTAIN KEY AND BUG VALUES")
-        print(f'[backpack.tf]: {rJson["message"]}')
-        input('press enter to close program...\n')
-        os._exit(1)
 
     print('[PROGRAM]: Everything ready, starting trading.')
     print('[PROGRAM]: Press ctrl+C to close at any time.')
