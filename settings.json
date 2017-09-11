@@ -4,5 +4,7 @@
   "password": "username",
   "username": "passowrd",
   "bkey":"backpack.tf key here",
-  "accept_escrow":0
+  "accept_escrow":0,
+  "decline_trades":1,
+  "confirm_options":"trades"
 }
