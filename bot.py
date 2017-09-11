@@ -69,6 +69,12 @@ class TradeManager:
         self.conf = conf
 
 
+    def decline(self, trade):
+        if decline_trades:
+            self.client.decline_trade_offer(trade.id)
+        self._declined_trades.append(trade.id)
+
+
     def accept(self, trade):
         """
         The accept function handles accepting trades. This is important, because different errors could occur.
@@ -109,7 +115,7 @@ class TradeManager:
                 print(f"[TRADE]: This trade has nothing we are looking for! They offered "
                       f"us:\n{str(trade.items_to_receive)}")
                 print(f'[TRADE]: For our:\n{str(trade.items_to_give)}')
-                self.client.decline_trade_offer(trade.id)
+                self.decline(trade)
                 self._declined_trades.append(trade.id)
                 logging.info(f'DECLINED TRADE: {trade.id}\nREASON: Nothing of interest')
                 continue
@@ -137,8 +143,7 @@ class TradeManager:
                 print(f'[TRADE]: For our:\n{str(trade.items_to_give)}')
                 print('[TRADE]: Declining offer')
                 logging.info(f"DECLINING INVALID TRADE: {trade.id}\nSELL: {sell_value} BUY:{buy_value}\n{trade.trade}")
-                self.client.decline_trade_offer(trade.id)
-                self._declined_trades.append(trade.id)
+                self.decline(trade)
                 self._pending_trades.remove(trade)
 
     def get_new_trades(self):
@@ -150,7 +155,7 @@ class TradeManager:
         Output: None
         """
         new_trades = client.get_trade_offers()['response']
-        logging.debug(str(new_trades))
+        logging.debug(new_trades)
         for new_trade in new_trades['trade_offers_received']:
             if new_trade['tradeofferid'] not in [t.id for t in self._trades] \
                     or new_trade['tradeofferid'] in self._declined_trades:
@@ -168,8 +173,7 @@ class TradeManager:
                     if not accept_escrow and trade.escrow:
                         print("[TRADE]: Trade is escrow, declining")
                         logging.info(f'DECLINING ESCROW TRADE: {trade.trade}')
-                        self.client.decline_trade_offer(trade.id)
-                        self._declined_trades.append(trade.id)
+                        self.decline(trade)
                     else:
                         self._pending_trades.append(trade)
 
@@ -193,8 +197,7 @@ class TradeManager:
                 print("[steamrep.com]: WARNING SCAMMER")
                 print('[TRADE]: Ending trade...')
                 logging.info(f"DECLINED SCAMMER (ID:{trade.other_steamid})")
-                self.client.decline_trade_offer(trade.id)
-                self._declined_trades.append(trade.id)
+                self.decline(trade)
                 return False
 
             print('[steamrep.com]: User is not banned')
@@ -202,8 +205,7 @@ class TradeManager:
                 print('[backpack.tf]: WARNING SCAMMER')
                 print('[TRADE]: Ending trade...')
                 logging.info(f"DECLINED SCAMMER (ID:{trade.other_steamid})")
-                self.client.decline_trade_offer(trade.id)
-                self._declined_trades.append(trade.id)
+                self.decline(trade)
                 return False
             print('[backpack.tf]: User is clean')
         print("[backpack.tf/steamrep.com]: User is clean")
@@ -258,14 +260,22 @@ class TradeManager:
                 self._trades.remove(trade)
                 logging.info(f'TRADE {trade.id} WAS ACCEPTED')
 
-        for tradeid in self._try_confs:
-            try:
-                self.conf.send_trade_allow_request(tradeid)
-                print(f'[TRADE]: Accepted trade {tradeid}')
-                logging.info(f'TRADE {tradeid} WAS ACCEPTED (after manual confirmation)')
-                self._try_confs.remove(tradeid)
-            except ConfirmationExpected:
-                logging.debug(f'CONFIRMATION FAILED ON {tradeid}')
+
+    def confirm_check(self):
+        if confirm_settings == 'all':
+            logging.debug('ACCEPTING EVERYTHING')
+            for confirmation in self.conf._get_confirmations():
+                self.conf._send_confirmation(confirmation)
+                logging.info(f'SENT CONFIRMATION FOR CONF WITH ID OF {confirmation.id}')
+        elif confirm_settings == 'trade':
+            for tradeid in self._try_confs:
+                try:
+                    self.conf.send_trade_allow_request(tradeid)
+                    print(f'[TRADE]: Accepted trade {tradeid}')
+                    logging.info(f'TRADE {tradeid} WAS ACCEPTED (after manual confirmation)')
+                    self._try_confs.remove(tradeid)
+                except ConfirmationExpected:
+                    logging.debug(f'CONFIRMATION FAILED ON {tradeid}')
 
 
 class Trade:
@@ -466,6 +476,8 @@ if __name__ == '__main__':
                     apikey, password, username, bkey, accept_escrow = data['apikey'],\
                                             data['password'], data['username'], data['bkey'], data['accept_escrow']
                     token = requests.get(f"https://backpack.tf/api/aux/token/v1?key={bkey}").json()['token']
+                    decline_trades = data.get('decline_trades', 1)
+                    confirm_settings = data.get('confirm_options', 'trades')
                 except KeyError as k:
                     logging.warning(f'SETTINGS FILE MISSING {k} VALUE')
                     print(f'[settings.json]: Whoops! You are missing the {k} value')
@@ -566,7 +578,7 @@ if __name__ == '__main__':
         print('[trade.data]: Unable to find file.')
         input('press enter to close program...\n')
         os._exit(1)
-    print(f'[CSV: Failed to load these lines: {fails}')
+    print(f'[CSV]: Failed to load these lines: {fails}')
     print('[PROGRAM]: Finished loading trading data.')
     # yn = input("Would you like to sync to backpack.tf listings?\n[y/n]: ")
     # if yn[0].lower() == 'y':
@@ -636,6 +648,9 @@ if __name__ == '__main__':
             manager.check_good_trades()
             print('[TRADE-MANAGER]: STEP 4 (check for successful trades) COMPLETE')
             logging.debug("(STEP 4 COMPLETE)")
+            manager.confirm_check()
+            print('[TRADE-MANAGER]: STEP 5 (check confirmations) COMPLETE')
+            logging.debug("(STEP 5 COMPLETE)")
             print('[PROGRAM]: Cooling down... (10)')
 
         except InterruptedError:
