@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import time
 from distutils.version import LooseVersion
@@ -7,6 +8,7 @@ import pip
 from enum import Enum
 import logging
 import csv
+import subprocess
 
 apikey = ''
 password = ''
@@ -23,6 +25,7 @@ currencies = {'bud':'Earbuds', 'ref':'Refined Metal', 'rec':'Reclaimed Metal', '
 packages = ['steampy', 'requests']
 declined_trades = []
 past_time = time.time()
+start_time = time.time()
 
 logging.basicConfig(filename='trade.log', level=logging.DEBUG,
                     format='[%(asctime)s][%(levelname)s][%(name)s]: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
@@ -627,6 +630,8 @@ if __name__ == '__main__':
     manager = TradeManager(client, conf)
 
     while True:
+        if time.time() - start_time >= 3600:
+            subprocess.call(["python", os.path.join(sys.path[0], __file__)] + sys.argv[1:])
         try:
             heartbeat()
             try:
