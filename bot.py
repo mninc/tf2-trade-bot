@@ -104,6 +104,11 @@ class TradeManager:
             trade = self._pending_trades[trade]
             sell_value = 0
             buy_value = 0
+            if not trade.items_to_give:
+                self.accept(trade)
+                self._pending_trades.remove(trade)
+                self._trades.append(trade)
+                continue
             for item in trade.items_to_give:
                 if item in sell_trades:
                     sell_value += sell_trades[item]
