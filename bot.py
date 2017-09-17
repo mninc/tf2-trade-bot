@@ -109,12 +109,21 @@ class TradeManager:
                 self._pending_trades.remove(trade)
                 self._trades.append(trade)
                 continue
+            exit_trade = False
             for item in trade.items_to_give:
+                if item not in sell_trades and item not in currencies.values():
+                    print('[TRADE]: Unknown item we\'re giving, declining')
+                    self.decline(trade)
+                    logging.info("DECLINING TRADE WITH UN-KNOWN ITEM")
+                    exit_trade = True
                 if item in sell_trades:
                     sell_value += sell_trades[item]
 
+            if exit_trade:
+                continue
+
             for item in trade.items_to_receive:
-                if item in buy_trades.keys():
+                if item in buy_trades:
                     buy_value += buy_trades[item]
 
             logging.debug(f'TRADE: {trade.id}\nSELL-VALUE: {sell_value}\tBUY-VALUE: {buy_value}')
