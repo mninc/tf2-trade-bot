@@ -111,13 +111,14 @@ class TradeManager:
                 continue
             exit_trade = False
             for item in trade.items_to_give:
-                if item not in sell_trades and item not in currencies.values():
-                    print('[TRADE]: Unknown item we\'re giving, declining')
-                    self.decline(trade)
-                    logging.info("DECLINING TRADE WITH UN-KNOWN ITEM")
-                    exit_trade = True
-                if item in sell_trades:
-                    sell_value += sell_trades[item]
+                if not exit_trade:
+                    if item not in sell_trades and item not in currencies.values():
+                        print('[TRADE]: Unknown item we\'re giving, declining')
+                        self.decline(trade)
+                        logging.info("DECLINING TRADE WITH UN-KNOWN ITEM")
+                        exit_trade = True
+                    if item in sell_trades:
+                        sell_value += sell_trades[item]
 
             if exit_trade:
                 continue
