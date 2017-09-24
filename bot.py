@@ -173,7 +173,7 @@ class TradeManager:
         Output: None
         """
         new_trades = client.get_trade_offers()['response']
-        logging.debug(new_trades)
+        #logging.debug(new_trades)
         for new_trade in new_trades['trade_offers_received']:
             if new_trade['tradeofferid'] not in [t.id for t in self._trades] \
                     or new_trade['tradeofferid'] in self._declined_trades:
