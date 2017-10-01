@@ -139,7 +139,7 @@ class TradeManager:
             sell_value += calculate(sell_curr[0], sell_curr[1], sell_curr[2], sell_curr[3], sell_curr[4])
             buy_value += calculate(buy_curr[0], buy_curr[1], buy_curr[2], buy_curr[3], buy_curr[4])
 
-            if sell_value < buy_value:
+            if sell_value <= buy_value:
                 print(f'[TRADE]: Looks good! They gave us:\n{str(trade.items_to_receive)}')
                 print(f'[TRADE]: We gave them:\n{str(trade.items_to_give)}')
                 print('[TRADE]: Attempting to accept offer')
