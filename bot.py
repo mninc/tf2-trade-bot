@@ -582,7 +582,7 @@ if __name__ == '__main__':
                         p = row['price'].split('.')
                         p = [int(i) for i in p]
                         price = calculate(p[0], p[1], p[2], p[3], p[4])
-                        sell_trades[row['item_name'].strip()] = price
+                        sell_trades[row['item_name'].strip().replace("$$", ","] = price
                     elif row['type'].strip()[0].lower() == 'b':
                         p = row['price'].split('.')
                         p = [int(i) for i in p]
