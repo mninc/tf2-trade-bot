@@ -582,12 +582,12 @@ if __name__ == '__main__':
                         p = row['price'].split('.')
                         p = [int(i) for i in p]
                         price = calculate(p[0], p[1], p[2], p[3], p[4])
-                        sell_trades[row['item_name'].strip().replace("$$", ","] = price
+                        sell_trades[row['item_name'].strip().replace("$$", ",")] = price
                     elif row['type'].strip()[0].lower() == 'b':
                         p = row['price'].split('.')
                         p = [int(i) for i in p]
                         price = calculate(p[0], p[1], p[2], p[3], p[4])
-                        buy_trades[row['item_name'].strip()] = price
+                        buy_trades[row['item_name'].strip().replace("$$", ",")] = price
                 except AttributeError:
                     fails.append(count)
             logging.info(f'LOADED TRADE DATA: BUY: {buy_trades} SELL: {sell_trades}')
