@@ -104,6 +104,8 @@ class TradeManager:
             trade = self._pending_trades[trade]
             sell_value = 0
             buy_value = 0
+            extra_sell = []
+            extra_buy = []
             if not trade.items_to_give:
                 self.accept(trade)
                 self._pending_trades.remove(trade)
@@ -112,12 +114,15 @@ class TradeManager:
             exit_trade = False
             for item in trade.items_to_give:
                 if not exit_trade:
-                    if item not in sell_trades and item not in currencies.values():
-                        print('[TRADE]: Unknown item we\'re giving, declining')
-                        self.decline(trade)
-                        logging.info("DECLINING TRADE WITH UN-KNOWN ITEM")
-                        exit_trade = True
-                    if item in sell_trades:
+                    if item not in sell_trades:
+                        if item in currencies.values():
+                            extra_sell.append(item)
+                        else:
+                            print('[TRADE]: Unknown item we\'re giving, declining')
+                            self.decline(trade)
+                            logging.info("DECLINING TRADE WITH UN-KNOWN ITEM")
+                            exit_trade = True
+                    else:
                         sell_value += sell_trades[item]
 
             if exit_trade:
@@ -126,24 +131,13 @@ class TradeManager:
             for item in trade.items_to_receive:
                 if item in buy_trades:
                     buy_value += buy_trades[item]
+                elif item in currencies.values():
+                    extra_buy.append(item)
 
-            logging.debug(f'TRADE: {trade.id}\nSELL-VALUE: {sell_value}\tBUY-VALUE: {buy_value}')
+            sell_value += calculate(sort(extra_sell))
+            buy_value += calculate(sort(extra_buy))
 
-            if not buy_value and not sell_value:
-                print(f"[TRADE]: This trade has nothing we are looking for! They offered "
-                      f"us:\n{str(trade.items_to_receive)}")
-                print(f'[TRADE]: For our:\n{str(trade.items_to_give)}')
-                self.decline(trade)
-                self._declined_trades.append(trade.id)
-                logging.info(f'DECLINED TRADE: {trade.id}\nREASON: Nothing of interest')
-                continue
-
-            if sell_value > buy_value:
-                response = check_trade(trade, sell_value, 'sell')
-            else:
-                response = check_trade(trade, buy_value, 'buy')
-
-            if response:
+            if sell_value < buy_value:
                 print(f'[TRADE]: Looks good! They gave us:\n{str(trade.items_to_receive)}')
                 print(f'[TRADE]: We gave them:\n{str(trade.items_to_give)}')
                 print('[TRADE]: Attempting to accept offer')
@@ -163,6 +157,7 @@ class TradeManager:
                 logging.info(f"DECLINING INVALID TRADE: {trade.id}\nSELL: {sell_value} BUY:{buy_value}\n{trade.trade}")
                 self.decline(trade)
                 self._pending_trades.remove(trade)
+
 
     def get_new_trades(self):
         """
@@ -344,32 +339,10 @@ class Trade:
         Prams: (self), type (str)
         Output: curr (list)
         """
-        curr = [0, 0, 0, 0, 0]
         if typ == 'sell':
-            for item in self.items_to_receive:
-                if item == currencies['scrap']:
-                    curr[0] += 1
-                elif item == currencies['rec']:
-                    curr[1] += 1
-                elif item == currencies['ref']:
-                    curr[2] += 1
-                elif item == currencies['key']:
-                    curr[3] += 1
-                elif item == currencies['bud']:
-                    curr[4] += 1
+            return sort(self.items_to_receive)
         else:
-            for item in self.items_to_give:
-                if item == currencies['scrap']:
-                    curr[0] += 1
-                elif item == currencies['rec']:
-                    curr[1] += 1
-                elif item == currencies['ref']:
-                    curr[2] += 1
-                elif item == currencies['key']:
-                    curr[3] += 1
-                elif item == currencies['bud']:
-                    curr[4] += 1
-        return curr
+            return sort(self.items_to_give)
 
     def status(self):
         """
@@ -379,6 +352,21 @@ class Trade:
         """
         trade_json = client.get_trade_offer(self.id)['response']['offer']
         return trade_json['trade_offer_state']
+
+def sort(items:list):
+    curr = [0,0,0,0,0]
+    for item in items:
+        if item == currencies['scrap']:
+            curr[0] += 1
+        elif item == currencies['rec']:
+            curr[1] += 1
+        elif item == currencies['ref']:
+            curr[2] += 1
+        elif item == currencies['key']:
+            curr[3] += 1
+        elif item == currencies['bud']:
+            curr[4] += 1
+    return curr
 
 def check_for_updates():
     with open('__version__', 'r') as file:
@@ -444,26 +432,27 @@ def check_install(pkg, c, imp=''):
         input('press enter to close program...\n')
         os._exit(0)
 
-def check_trade(trade_obj, items_value, typ):
-    if typ == 'sell':
-        b_curr = trade_obj.sort('buy')
-        items_value += calculate(b_curr[0], b_curr[1], b_curr[2], b_curr[3], b_curr[4])
-    else:
-        s_curr = trade_obj.sort('sell')
-        items_value += calculate(s_curr[0], s_curr[1], s_curr[2], s_curr[3], s_curr[4])
-    curr = trade_obj.sort(typ)
-    value = calculate(curr[0], curr[1], curr[2], curr[3], curr[4])
-    logging.debug(f"TRADE {trade_obj.id} is a {typ} trade, and is worth {value}, with items being {items_value}")
-    if typ == 'sell':
-        if value >= items_value:
-            return True
-        else:
-            return False
-    else:
-        if value <= items_value:
-            return True
-        else:
-            return False
+# def check_trade(trade_obj, items_value, typ):
+#     curr = trade_obj.sort(typ)
+#     value = calculate(curr[0], curr[1], curr[2], curr[3], curr[4])
+#     if typ == 'sell':
+#         b_curr = trade_obj.sort('buy')
+#         items_value += calculate(b_curr[0], b_curr[1], b_curr[2], b_curr[3], b_curr[4])
+#     else:
+#         s_curr = trade_obj.sort('sell')
+#         items_value += calculate(s_curr[0], s_curr[1], s_curr[2], s_curr[3], s_curr[4])
+#
+#     logging.debug(f"TRADE {trade_obj.id} is a {typ} trade, and is worth {value}, with items being {items_value}")
+#     if typ == 'sell':
+#         if value >= items_value:
+#             return True
+#         else:
+#             return False
+#     else:
+#         if value <= items_value:
+#             return True
+#         else:
+#             return False
 
 def heartbeat():
     global past_time
