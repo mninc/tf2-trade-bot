@@ -445,6 +445,12 @@ def check_install(pkg, c, imp=''):
         os._exit(0)
 
 def check_trade(trade_obj, items_value, typ):
+    if typ == 'sell':
+        b_curr = trade_obj.sort('buy')
+        items_value += calculate(b_curr[0], b_curr[1], b_curr[2], b_curr[3], b_curr[4])
+    else:
+        s_curr = trade_obj.sort('sell')
+        items_value += calculate(s_curr[0], s_curr[1], s_curr[2], s_curr[3], s_curr[4])
     curr = trade_obj.sort(typ)
     value = calculate(curr[0], curr[1], curr[2], curr[3], curr[4])
     logging.debug(f"TRADE {trade_obj.id} is a {typ} trade, and is worth {value}, with items being {items_value}")
