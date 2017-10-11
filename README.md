@@ -12,10 +12,10 @@ You will need the language python3.6 or greater. If you don't have python instal
 Each file has a description in this repo, to find out what you should do. You can ignore bot.py however, that doesn't need changing :P
 
 # Running 
-If you are here, you have added your ID and secrets too steamguard.json, password username and api keys to settings.json, and filled out trade.data with whatever you wanted to sell. You can now run bot.py! You *will* have to install some packages, but the bot will handle that part for you! Just restart the program when it tells you to. If you're having truoble with somthing or you come across an error, make an issue in this repo and I'll respond asap!
+If you are here, you have added your ID and secrets to steamguard.json, password, username and api keys to settings.json, and filled out trade.data with whatever you wanted to sell. You can now run bot.py! You *will* have to install some packages, but the bot will handle that part for you! Just restart the program when it tells you to. If you're having truoble with somthing or you come across an error, make an issue in this repo and I'll respond asap!
 
 # Credits
-This bot was made completly by me, Zwork101. It is under the MIT liscence. I am not responsible for any loss you might receive whilst using this program. If you enjoyed this bot, steam item donation's are accepted!
+This bot was made completely by me, Zwork101. It is under the MIT license. I am not responsible for any loss you might receive whilst using this program. If you enjoyed this bot, steam item donations are accepted!
 
 ### With love, Zwork101
 
