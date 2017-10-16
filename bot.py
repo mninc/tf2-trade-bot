@@ -123,14 +123,14 @@ class TradeManager:
                             logging.info("DECLINING TRADE WITH UN-KNOWN ITEM")
                             exit_trade = True
                     else:
-                        sell_value += sell_trades[item]
+                        sell_value = add_values(sell_trades[item], sell_value)
 
             if exit_trade:
                 continue
 
             for item in trade.items_to_receive:
                 if item in buy_trades:
-                    buy_value += buy_trades[item]
+                    buy_value = add_values(buy_trades[item], buy_value)
                 elif item in currencies.values():
                     extra_buy.append(item)
 
@@ -354,6 +354,23 @@ class Trade:
         """
         trade_json = client.get_trade_offer(self.id)['response']['offer']
         return trade_json['trade_offer_state']
+      
+def add_values(v1, v2):
+    v1_rem, v2_rem = int(str(v1).split('.')[1]), int(str(v2).split('.')[1])
+    ref = int(v1) + int(v2)
+    
+    v1_rec, v2_rec = v1_rem // 33, v2_rem // 33
+    v1_rem, v2_rem = v1_rem - v1_rec * 33, v2_rem - v2_rec * 33
+    
+    srp_added = v1_rem + v2_rem
+    v1_rec += srp_added // 33
+    srp_added -= (srp_added // 33) * 33
+    
+    rec_added = v1_rec + v2_rec
+    ref += rec_added // 3
+    rec_added -= (rec_added // 3) * 3
+    
+    return float(str(ref) + '.' + str(rec_added*33 + srp_added))
 
 def sort(items:list):
     curr = [0,0,0,0,0]
