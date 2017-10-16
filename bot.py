@@ -123,14 +123,14 @@ class TradeManager:
                             logging.info("DECLINING TRADE WITH UN-KNOWN ITEM")
                             exit_trade = True
                     else:
-                        sell_value = add_values(sell_trades[item], sell_value)
+                        sell_value = add_values(float(sell_trades[item]), float(sell_value))
 
             if exit_trade:
                 continue
 
             for item in trade.items_to_receive:
                 if item in buy_trades:
-                    buy_value = add_values(buy_trades[item], buy_value)
+                    buy_value = add_values(float(buy_trades[item]), float(buy_value))
                 elif item in currencies.values():
                     extra_buy.append(item)
 
