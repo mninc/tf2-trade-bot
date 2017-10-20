@@ -410,31 +410,19 @@ def check_for_updates():
 
 
 def calculate(scrapC, recC, refC, keyC, budC):
-    min = 0
-    BeyC = budC * bud_price
-    maj = (BeyC * key_price) + (keyC * key_price)
-    maj_scrap = int(scrapC / 3)
-    scrapC -= maj_scrap * 3
-    recC += maj_scrap
-    maj_rec = int(recC / 3)
-    recC -= maj_rec * 3
-    refC += maj_rec
-
-    if scrapC % 3:
-        if scrapC == 1:
-            min += .11
-        else:
-            min += .22
-
-    if recC % 3:
-        if recC == 1:
-            min += .33
-        else:
-            min += .66
-
-    maj += refC
-
-    return maj + min
+    #For each currency, add it using add_values function
+    total_value = 0.0
+    for scrap in range(scrapC):
+        total_value = add_values(total_value, .11)
+    for rec in range(recC):
+        total_value = add_values(total_value, .33)
+    for ref in range(refC):
+        total_value = add_values(total_value, 1.0)
+    for key in range(keyC):
+        total_value = add_values(total_value, float(key_price))
+    for bud in range(budC):
+        total_value = add_values(total_value, float(bud_price))
+    return total_value
 
 def check_install(pkg, c, imp=''):
     try:
@@ -660,7 +648,8 @@ if __name__ == '__main__':
 
     while True:
         if time.time() - start_time >= 3600:
-            subprocess.call(["python", os.path.join(sys.path[0], __file__)] + sys.argv[1:])
+            pass
+            #subprocess.call(["python", os.path.join(sys.path[0], __file__)] + sys.argv[1:])
         try:
             heartbeat()
             try:
