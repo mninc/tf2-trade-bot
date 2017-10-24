@@ -23,7 +23,7 @@ escrow = None
 whitelist = []
 currencies = {'bud':'Earbuds', 'ref':'Refined Metal', 'rec':'Reclaimed Metal', 'scrap':'Scrap Metal', 'key':'Mann Co. Supply Crate Key'}
 packages = ['steampy', 'requests']
-declined_trades = []
+declined_trades = None
 past_time = time.time()
 start_time = time.time()
 
@@ -75,7 +75,8 @@ class TradeManager:
     def decline(self, trade):
         if decline_trades:
             self.client.decline_trade_offer(trade.id)
-        self._declined_trades.append(trade.id)
+        if trade.id not in self._declined_trades:
+            self._declined_trades.append(trade.id)
 
 
     def accept(self, trade):
@@ -120,6 +121,7 @@ class TradeManager:
                         else:
                             print('[TRADE]: Unknown item we\'re giving, declining')
                             self.decline(trade)
+                            self._pending_trades.remove(trade)
                             logging.info("DECLINING TRADE WITH UN-KNOWN ITEM")
                             exit_trade = True
                     else:
@@ -172,8 +174,8 @@ class TradeManager:
         new_trades = client.get_trade_offers()['response']
         #logging.debug(new_trades)
         for new_trade in new_trades['trade_offers_received']:
-            if new_trade['tradeofferid'] not in [t.id for t in self._trades] \
-                    or new_trade['tradeofferid'] in self._declined_trades:
+            if (not new_trade['tradeofferid'] in [t.id for t in self._trades]) \
+                    or (new_trade['tradeofferid'] in self._declined_trades):
                 id64 = 76561197960265728 + new_trade['accountid_other']
                 trade = Trade(new_trade, id64)
                 logging.info(f"FOUND NEW TRADE: {trade.id}")
