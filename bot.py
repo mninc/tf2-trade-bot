@@ -432,7 +432,7 @@ def check_install(pkg, c, imp=''):
         print(f'[PROGRAM]: Required package is installed {c}/{len(packages)}')
         logging.debug(f"MODUAL {pkg} IS INSTALLED")
     except:
-        logging.info("MODUAL {pkg} IS NOT INSTALLED")
+        logging.info(f"MODUAL {pkg} IS NOT INSTALLED")
         if imp:
             pkg = imp
         print('[PROGRAM]: A required package is not installed, installing...')
