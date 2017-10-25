@@ -2,8 +2,8 @@
 {
   "apikey": "steamAPI key",
   "password": "username",
-  "username": "passowrd",
-  "bkey":"backpack.tf key here",
+  "username": "password",
+  "bkey":"backpack.tf key",
   "accept_escrow":0,
   "decline_trades":1,
   "confirm_options":"trades"
