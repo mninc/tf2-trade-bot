@@ -1,5 +1,5 @@
 {
     "steamid": "steam64 id",
     "shared_secret": "steam shared secret",
-    "identity_secret": "steam shared secret"
+    "identity_secret": "steam identity secret"
 }
