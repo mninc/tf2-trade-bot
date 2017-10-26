@@ -1,3 +1,4 @@
 
 *.xml
 .idea/tf2-trade-bot.iml
+test.py

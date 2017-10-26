@@ -354,7 +354,11 @@ class Trade:
         Prams: (self)
         Output: trade_json['trade_offer_state'] (int/str)
         """
-        trade_json = client.get_trade_offer(self.id)['response']['offer']
+        try:
+            trade_json = client.get_trade_offer(self.id)['response']['offer']
+        except KeyError:
+            #If key error, the trade doesn't exist anymore. If so, it's invalid
+            trade_json = {'trade_offer_state':1}
         return trade_json['trade_offer_state']
       
 def add_values(v1, v2):
