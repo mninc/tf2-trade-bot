@@ -91,7 +91,7 @@ class TradeManager:
         except BaseException as BE:
             if BE.__class__ == KeyError:
                 print(f'ERROR: Issue confirming trade: {trade.id}, trying again')
-                self._trades.remove(trade)
+                #self._trades.remove(trade)
                 self._pending_trades.append(trade)
             logging.warning(f'TRADE ACCEPT ERROR: {type(BE).__name__}: {BE}')
             return False
@@ -112,9 +112,9 @@ class TradeManager:
             extra_sell = []
             extra_buy = []
             if not trade.items_to_give:
-                self.accept(trade)
                 self._pending_trades.remove(trade)
                 self._trades.append(trade)
+                self.accept(trade)
                 continue
             exit_trade = False
             for item in trade.items_to_give:
@@ -151,13 +151,12 @@ class TradeManager:
                 print('[TRADE]: Attempting to accept offer')
                 try:
                     logging.info(f"ATTEMPTING TRADE: {trade.id}\nSELL: {sell_value} BUY:{buy_value}\n{trade.trade}")
-                    self.accept(trade)
                     self._trades.append(trade)
+                    self._pending_trades.remove(trade)
+                    self.accept(trade)
                 except ConfirmationExpected:
                     logging.warning(f'FAILED TO CONFIRM TRADE: {trade.id} (FIRST TRY)')
                     self._try_confs.append(trade.id)
-                self._pending_trades.remove(trade)
-                self._trades.append(trade)
             else:
                 print(f'[TRADE]: No good! They offered us:\n{str(trade.items_to_receive)}')
                 print(f'[TRADE]: For our:\n{str(trade.items_to_give)}')
