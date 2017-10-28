@@ -58,7 +58,7 @@ class TradeManager:
 
     """
     The manager for trades. This will be used to organize trades and keep everything from falling apart.
-    Prams: client (steampy.client.SteamClient object, and conf, steampy.confirmation.ConfirmationExecutor
+    Prams: client (steampy.client.SteamClient object) and conf (steampy.confirmation.ConfirmationExecutor)
     Public values: client and conf (see above)
     Public functions: accept, check_trades_content, get_new_trades, check_good_trades, check_bad_trades
     """
@@ -99,7 +99,7 @@ class TradeManager:
 
     def check_trades_content(self):
         """
-        This will check the current trades in self._pending_trades and decide if they are good or not
+        This will check the current trades in self._pending_trades and decide if they are correct or not
         Then it will move the good trades to self._declined_trades and self._trades after acccepting/declining
         trade offers.
         Prams: (self)
@@ -169,8 +169,8 @@ class TradeManager:
 
     def get_new_trades(self):
         """
-        Collects new trades, Will compare them to current trades to ensure they are new. Will also accept if the trade
-        if white listed. It will also delcine the trade if the user is a scammer or escrow. If not, moved it to
+        Collects new trades, will compare them to current trades to ensure they are new. Accepts if the sender
+        is whitelisted, delcines if the user is a scammer or escrow. If not, moved it to
         self._pending_trades (list)
         Prams: (self)
         Output: None
@@ -184,7 +184,7 @@ class TradeManager:
                 trade = Trade(new_trade, id64)
                 logging.info(f"FOUND NEW TRADE: {trade.id}")
                 if str(id64) in whitelist:
-                    print(f"[WHITELIST]: Neat! This trade is whitelisted! Attempting confirmation (STEAM ID:{id64})")
+                    print(f"[WHITELIST]: Neat! The user sending this trade is whitelisted! Attempting confirmation (STEAM ID:{id64})")
                     logging.info(f'TRADE WHITELISTED ATTEMPTING TRADE: {trade.id}')
                     self.accept(trade)
                     self._trades.append(trade)
@@ -201,13 +201,13 @@ class TradeManager:
 
     def _check_partner(self, trade):
         """
-        To check backpack.tf and steamrep for the user, in case they are a scammer. This uses the backpack.tf API.
-        The API will supply the steamrep stats for the user. If a scammer,
-        will decline and move trade to self._declined_trades.
+        To check if the user is a scammer from backpack.tf and steamrep. This uses the backpack.tf API.
+        The API will supply the steamrep stats for the user. If the user is a scammer, it
+        will decline the trade and move it to self._declined_trades.
         Prams: (self), trade (Trade object)
         Output: None
         """
-        print("[TRADE]: Checking for trade bans for backpack.tf and steamrep.com")
+        print("[TRADE]: Checking for trade bans on backpack.tf and steamrep.com")
         rJson = requests.get(f"https://backpack.tf/api/users/info/v1?",
                              data={'key':bkey, 'steamids':trade.other_steamid}).json()
 
@@ -215,7 +215,7 @@ class TradeManager:
         if "bans" in rJson['users'][trade.other_steamid].keys():
             if "steamrep_caution" in rJson['users'][trade.other_steamid]['bans'] or \
                             "steamrep_scammer" in rJson['users'][trade.other_steamid]['bans']:
-                print("[steamrep.com]: WARNING SCAMMER")
+                print("[steamrep.com]: SCAMMER")
                 print('[TRADE]: Ending trade...')
                 logging.info(f"DECLINED SCAMMER (ID:{trade.other_steamid})")
                 self.decline(trade)
@@ -223,7 +223,7 @@ class TradeManager:
 
             print('[steamrep.com]: User is not banned')
             if "all" in rJson['users'][trade.other_steamid]['bans']:
-                print('[backpack.tf]: WARNING SCAMMER')
+                print('[backpack.tf]: SCAMMER')
                 print('[TRADE]: Ending trade...')
                 logging.info(f"DECLINED SCAMMER (ID:{trade.other_steamid})")
                 self.decline(trade)
@@ -235,8 +235,8 @@ class TradeManager:
 
     def check_bad_trades(self):
         """
-        Looks at the current trades in self._trades, will check if the trade has become invalid, like
-        if the trade was cancled, it will remove it from trades and report what happned to the user
+        Looks at the current trades in self._trades and checks if the trade has become invalid (eg
+        if the trade was cancled). It will remove it from trades and report what happened to the user
         Prams: (self)
         Output: None
         """
@@ -303,7 +303,7 @@ class Trade:
 
     """
     This is an object mainly to store data about a trade, and make it easy to access. It can also
-    Sort a trades currencies, and fetch the status of it's trade.
+    the currency in the trade and fetch the status of the trade.
     Prams: trade_json (dict), other_steamid (str)
     Public values: self.trade (dict), self.escrow (int), self.items_to_give (list), self.items_to_receive (list),
     self.id (int/str), self.other_steamid (str)
@@ -342,8 +342,9 @@ class Trade:
 
     def sort(self, typ):
         """
-        Counts the amount of a currency type there is in one side of the trade. "sort" is missleading-ish, it's
-        just counting the amount of scrap, rec, ref, key, and bud there is.
+        Counts the amount of a currency type there is in one side of the trade. "sort" is sort 
+        of misleading (see what I did there), it just counts how many scraps, recs, ref, keys and
+        buds there are.
         Prams: (self), type (str)
         Output: curr (list)
         """
@@ -403,7 +404,7 @@ def check_for_updates():
     r = requests.get('https://raw.githubusercontent.com/Zwork101/tf2-trade-bot/master/__version__')
     new_version = r.text
     if LooseVersion(new_version) > LooseVersion(curr_version):
-        print('[PROGRAM]: New version is available, would you like to install?')
+        print('[PROGRAM]: A new version is available, would you like to install?')
         yn = input('[y/n]: ')
         if yn[0].lower() == 'y':
             print('[Installer]: Starting installation...', end='')
@@ -438,9 +439,9 @@ def check_install(pkg, c, imp=''):
     try:
         importlib.import_module(pkg)
         print(f'[PROGRAM]: Required package is installed {c}/{len(packages)}')
-        logging.debug(f"MODUAL {pkg} IS INSTALLED")
+        logging.debug(f"MODULE {pkg} IS INSTALLED")
     except:
-        logging.info(f"MODUAL {pkg} IS NOT INSTALLED")
+        logging.info(f"MODULE {pkg} IS NOT INSTALLED")
         if imp:
             pkg = imp
         print('[PROGRAM]: A required package is not installed, installing...')
@@ -473,11 +474,11 @@ def check_install(pkg, c, imp=''):
 
 def heartbeat():
     global past_time
-    print(f"[HEARTBEAT]: {90 - int(time.time() - past_time)} seconds until can send next heartbeat")
+    print(f"[HEARTBEAT]: ~{90 - int(time.time() - past_time)} seconds until next heartbeat")
     if int(time.time() - past_time) >= 90:
         p = requests.post(f"https://backpack.tf/api/aux/heartbeat/v1?", data={"token": token, "automatic": "all"})
         if p.status_code != 200:
-            print(f'[HEARTBEAT]: Error when sending heartbeat > {p.json()["message"]}')
+            print(f'[HEARTBEAT]: Error when sending heartbeat: {p.json()["message"]}')
             logging.warning(f"ERROR SENDING HEARTBEAT: {p.json()['message']}")
         else:
             print("[HEARTBEAT]: Sent heartbeat to backpack.tf")
@@ -511,11 +512,11 @@ if __name__ == '__main__':
                 except KeyError as k:
                     logging.warning(f'SETTINGS FILE MISSING {k} VALUE')
                     print(f'[settings.json]: Whoops! You are missing the {k} value')
-                    input('press enter to close program...\n')
+                    input('Press enter to close program...\n')
                     os._exit(1)
             except json.JSONDecodeError:
                 logging.warning('INVALID SETTINGS FILE')
-                print('[PROGRAM]: Whoops! It would seem that you settings.json folder is invalid!')
+                print('[PROGRAM]: Whoops! It would seem that you settings.json file is invalid!')
                 input('press enter to close program...\n')
                 os._exit(1)
         logging.debug("LOADED SETTINGS")
@@ -525,11 +526,11 @@ if __name__ == '__main__':
         print('[PROGRAM]: File settings.json not found! Would you like to make one?')
         yn = input('[y/n]: ')
         if yn[0].lower() == 'y':
-            apikey = input('[settings.json]: enter your steam API key. (https://steamcommunity.com/dev/apikey)\n')
-            password = input('[settings.json]: enter your password. \n')
-            username = input('[settings.json]: enter your username. \n')
-            bkey = input('[settings.json]: enter your backpack.tf API key. (https://backpack.tf/api/register)\n')
-            accept_escrow = input('[settings.json]: accept escrow trades? (0 for no, 1 for yes)\n')
+            apikey = input('[settings.json]: Enter your steam API key. (https://steamcommunity.com/dev/apikey)\n')
+            password = input('[settings.json]: Enter your password. \n')
+            username = input('[settings.json]: Enter your username. \n')
+            bkey = input('[settings.json]: Enter your backpack.tf API key. (https://backpack.tf/api/register)\n')
+            accept_escrow = input('[settings.json]: Accept escrow trades? (0 for no, 1 for yes)\n')
             print('[PROGRAM]: Writing data to file...')
             with open('settings.json', 'w') as file:
                 json.dump({'apikey':apikey, 'password':password, 'username':username, 'bkey':bkey,
@@ -537,7 +538,7 @@ if __name__ == '__main__':
             print('[PROGRAM]: Wrote to file')
         else:
             print("[PROGRAM]: Can't run without user information.")
-            input('press enter to close program...\n')
+            input('Press enter to close program...\n')
             os._exit(1)
 
     client = SteamClient(apikey)
@@ -554,7 +555,7 @@ if __name__ == '__main__':
     else:
         logging.fatal("FAILED TO OBTAIN KEY AND BUG VALUES")
         print(f'[backpack.tf]: {rJson["message"]}')
-        input('press enter to close program...\n')
+        input('Press enter to close program...\n')
         os._exit(1)
 
     try:
@@ -562,17 +563,17 @@ if __name__ == '__main__':
     except json.decoder.JSONDecodeError:
         logging.warning("STEAMGUARD FILE INVALID")
         print('[steamguard.json]: Unable to read file.')
-        input('press enter to close program...\n')
+        input('Press enter to close program...\n')
         os._exit(1)
     except FileNotFoundError:
         logging.warning("UNABLE TO FIND STEAMGAURD FILE")
         print('[steamguard.json]: Unable to find file.')
-        input('press enter to close program...\n')
+        input('Press enter to close program...\n')
         os._exit(1)
     except InvalidCredentials:
         logging.info("CREDENTIALS INVALID")
-        print('[PROGRAM]: your username and/or password and/or secrets and/or ID is invalid.')
-        input('press enter to close program...\n')
+        print('[PROGRAM]: Your username, password, ID and/or secrets are invalid.')
+        input('Press enter to close program...\n')
         os._exit(1)
     else:
         conf = confirmation.ConfirmationExecutor(
@@ -606,7 +607,7 @@ if __name__ == '__main__':
     except FileNotFoundError:
         logging.warning("TRADE FILE NOT FOUND")
         print('[trade.data]: Unable to find file.')
-        input('press enter to close program...\n')
+        input('Press enter to close program...\n')
         os._exit(1)
     print(f'[CSV]: Failed to load these lines: {fails}')
     print('[PROGRAM]: Finished loading trading data.')
@@ -652,7 +653,7 @@ if __name__ == '__main__':
         logging.debug("WHITELIST NOT FOUND")
 
     print('[PROGRAM]: Everything ready, starting trading.')
-    print('[PROGRAM]: Press ctrl+C to close at any time.')
+    print('[PROGRAM]: Press Ctrl+C to close at any time.')
 
     manager = TradeManager(client, conf)
 
