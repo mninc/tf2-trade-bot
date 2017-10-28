@@ -89,6 +89,10 @@ class TradeManager:
             self.client.accept_trade_offer(trade.id)
             return True
         except BaseException as BE:
+            if BE.__class__ == KeyError:
+                print(f'ERROR: Issue confirming trade: {trade.id}, trying again')
+                self._trades.remove(trade)
+                self._pending_trades.append(trade)
             logging.warning(f'TRADE ACCEPT ERROR: {type(BE).__name__}: {BE}')
             return False
 
