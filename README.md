@@ -21,8 +21,8 @@ This bot was made completely by me, Zwork101. It is under the MIT license. I am 
 ### With love, Zwork101
 
 # to-do list
- * ~~Add catch for when items become unavailible to trade~~
- * Neaten and make code more efficint
+ * ~~Add catch for when items become unavailable to trade~~
+ * Neaten and make code more efficient
  * ~~change current input to csv for trade.data~~
  * add 2 seperate logs, one for debugging, one for trades
  * add ability to sync bot's trades with backpack.tf
