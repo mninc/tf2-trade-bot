@@ -10,6 +10,7 @@ otherwise, just download the zip. Make sure you keep every file in the same fold
 # Setup
 You will need the language python3.6 or greater. If you don't have python installed, you can find the download [here](https://www.python.org/).
 Each file has a description in this repo, to find out what you should do. You can ignore bot.py however, that doesn't need changing :P
+If you need a more in-depth setup guide, click [here](#in-depth-setup).
 
 # Running 
 If you are here, you have added your ID and secrets to steamguard.json, password, username and api keys to settings.json, and filled out trade.data with whatever you wanted to sell or buy. You can now run bot.py! You *will* have to install some packages, but the bot will handle that part for you! Just restart the program when it tells you to. If you're having truoble with somthing or if you come across an error, make an issue in this repo and I'll respond asap!
