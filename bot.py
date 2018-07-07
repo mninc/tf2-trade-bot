@@ -10,6 +10,11 @@ import logging
 import csv
 import subprocess
 
+try:
+    main = pip.main
+except AttributeError:
+    # module 'pip' has no attribute 'main'
+    from pip._internal import main
 apikey = ''
 password = ''
 username = ''
@@ -39,7 +44,10 @@ start_text = """
  _// \\\_  )(\\\,- <<  //       _// \\\_  //   \\\_  \\\    >>  |||_   <<   >>      _|| \\\_       \\\   _// \\\_  
 (__) (__)(__)(_/(__)(__)     (__) (__)(__)  (__)(__)  (__)(__)_) (__) (__)    (__) (__)     (__) (__) (__) 
 
-Created by: Zwork101    Github: https://github.com/Zwork101    Steam: https://steamcommunity.com/id/ZWORK101\n
+Created by: Zwork101    Github: https://github.com/Zwork101    Steam: https://steamcommunity.com/id/ZWORK101
+
+THIS VERSION IS NO LONGER UNDER DEVELOPMENT AND BUGS WILL NOT BE FIXED. IT IS HIGHLY RECOMMENDED TO SWITCH
+TO THE NEW VERSION. YOU CAN FIND THIS AT: https://github.com/mninc/tf2-trade-bot-2\n
 """
 
 class TradeOfferStatus(Enum):
@@ -444,7 +452,7 @@ def check_install(pkg, c, imp=''):
         if imp:
             pkg = imp
         print('[PROGRAM]: A required package is not installed, installing...')
-        pip.main(['install', pkg])
+        main(['install', pkg])
         print('[PROGRAM]: Installed package! Please restart this program to continue.')
         input('press enter to close program...\n')
         os._exit(0)
